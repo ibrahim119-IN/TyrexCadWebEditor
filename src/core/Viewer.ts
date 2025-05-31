@@ -110,18 +110,24 @@ export class Viewer {
     
     // حالة التهيئة
     private initialized: boolean = false;
-    getCurrentCamera: any;
 
     constructor(container: HTMLElement) {
+        console.log("CORE VIEWER: Constructor called.");
         this.container = container;
         this.intersectionPlane = new Plane(new Vector3(0, 0, 1), 0);
         
         // الحصول على المثيلات
         this.geometryEngine = GeometryEngine.getInstance();
         this.logger = Logger.getInstance();
+        this.commandManager = new CommandManager();
         
         // تهيئة المكونات
-        this.initializeAsync();
+        console.log("CORE VIEWER: Instance partially created, 'this' is:", this);
+        this.initializeAsync().then(() => {
+            console.log("CORE VIEWER: initializeAsync completed successfully.");
+        }).catch(err => {
+            console.error("CORE VIEWER: initializeAsync FAILED:", err);
+        });
     }
 
     /**
@@ -130,19 +136,26 @@ export class Viewer {
      */
     private async initializeAsync(): Promise<void> {
         try {
+            console.log("CORE VIEWER: initializeAsync - START");
             this.logger.info('بدء تهيئة Viewer...');
             
             // تهيئة المحرك الهندسي
             await this.geometryEngine.initialize();
+            console.log("CORE VIEWER: initializeAsync - GeometryEngine initialized.");
             
             // إنشاء المكونات الأساسية
             this.renderer = this.createRenderer();
+            console.log("CORE VIEWER: initializeAsync - Renderer created.");
             this.scene2D = this.createScene2D();
             this.scene3D = this.createScene3D();
+            console.log("CORE VIEWER: initializeAsync - Scenes created.");
             this.camera2D = this.createCamera2D();
             this.camera3D = this.createCamera3D();
+            console.log("CORE VIEWER: initializeAsync - Cameras created. camera2D:", this.camera2D, "camera3D:", this.camera3D);
             this.controls2D = this.createControls2D();
             this.controls3D = this.createControls3D();
+            console.log("CORE VIEWER: initializeAsync - Controls created.");
+            console.log("CORE VIEWER: initializeAsync - Lighting created.");
             
             // إنشاء الأنظمة المساعدة
             this.snapSystem = new SnapSystem();
@@ -150,19 +163,25 @@ export class Viewer {
                 this.container,
                 this.is2D ? this.camera2D : this.camera3D
             );
+            console.log("CORE VIEWER: initializeAsync - Internal systems created.");
             
             // الإعداد الأولي
             this.setup();
             this.animate();
+            console.log("CORE VIEWER: initializeAsync - Setup methods called.");
             
             this.initialized = true;
+            console.log("CORE VIEWER: initializeAsync - COMPLETING. 'initialized' flag set to true. Instance 'this':", this);
+            console.log("CORE VIEWER: initializeAsync - typeof this.getCurrentCamera:", typeof this.getCurrentCamera);
             this.logger.info('تم تهيئة Viewer بنجاح');
             
             // إضافة بعض الأشكال للاختبار
             this.addTestShapes();
             
         } catch (error) {
+            console.error("Viewer initializeAsync ERROR:", error);
             this.logger.error('فشلت تهيئة Viewer:', error);
+            this.initialized = false;
             throw error;
         }
     }
@@ -654,5 +673,9 @@ export class Viewer {
 
     public isInitialized(): boolean {
         return this.initialized;
+    }
+
+    public getCurrentCamera(): PerspectiveCamera | OrthographicCamera {
+        return this.is2D ? this.camera2D : this.camera3D;
     }
 }

@@ -6,7 +6,9 @@ export default defineConfig({
     open: true,
     host: true,
     headers: {
-      'Cross-Origin-Embedder-Policy': 'require-corp',
+      // تخفيف سياسة COEP للتطوير المحلي
+      // للإنتاج، استخدم: 'require-corp' و 'same-origin'
+      'Cross-Origin-Embedder-Policy': 'credentialless',
       'Cross-Origin-Opener-Policy': 'same-origin',
     }
   },

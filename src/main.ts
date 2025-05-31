@@ -6,7 +6,7 @@
 import './styles/main.css';
 
 // المكونات الأساسية
-import { Viewer, ViewMode, ViewOrientation } from './core/Viewer';
+import { Viewer, ViewMode, ViewOrientation, ViewSettings, PerformanceStats } from './rendering/Viewer';
 import { GeometryEngine } from './core/GeometryEngine';
 import { Logger, LogLevel } from './core/Logger';
 import { CommandManager } from './core/CommandManager';
@@ -245,8 +245,8 @@ const logger = Logger.getInstance();
  */
 async function loadOpenCASCADE(): Promise<void> {
     return new Promise((resolve, reject) => {
-        if ((window as any).OpenCascadeModule) {
-            logger.info('OpenCASCADE موجود مسبقاً');
+        if (typeof (window as any).globalOpenCascadeFactory === 'function') {
+            logger.info('OpenCascade factory (globalOpenCascadeFactory) موجود مسبقاً.');
             resolve();
             return;
         }
@@ -255,9 +255,9 @@ async function loadOpenCASCADE(): Promise<void> {
         
         // نظام fallback ذكي
         const loadStrategies = [
-            () => loadFromLocal(),
-            () => loadFromCDN(),
-            () => createMockEngine()
+            () => loadScriptAndSetFactory('/assets/opencascade/opencascade.wasm.js', 'محلي'),
+            () => loadScriptAndSetFactory('https://unpkg.com/opencascade.js@2.0.0-beta.b5e5073/dist/opencascade.wasm.js', 'CDN'),
+            () => createMockOpenCascadeFactory()
         ];
         
         let currentStrategy = 0;
@@ -282,165 +282,167 @@ async function loadOpenCASCADE(): Promise<void> {
     });
 }
 
-async function loadFromLocal(): Promise<void> {
+async function loadScriptAndSetFactory(src: string, sourceName: string): Promise<void> {
     return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = '/assets/opencascade/opencascade.wasm.js';
-        script.onload = () => {
-            setTimeout(() => {
-                if ((window as any).OpenCascade) {
-                    (window as any).OpenCascadeModule = (window as any).OpenCascade;
-                    resolve();
-                } else {
-                    reject(new Error('فشل تهيئة OpenCASCADE المحلي'));
-                }
-            }, 1000);
+        logger.info(`محاولة تحميل OpenCASCADE factory من ${sourceName} (${src})`);
+        const scriptElement = document.createElement('script');
+        scriptElement.src = src;
+        scriptElement.async = true;
+        scriptElement.onload = () => {
+            if (typeof (window as any).OpenCascadeModule === 'function') {
+                (window as any).globalOpenCascadeFactory = (window as any).OpenCascadeModule;
+                logger.info(`OpenCascadeModule factory (${sourceName}) جاهز الآن ضمن window.globalOpenCascadeFactory.`);
+                resolve();
+            } else {
+                const errorMessage = `فشل تهيئة OpenCASCADE (${sourceName}) - لم يتم العثور على دالة OpenCascadeModule ضمن الكائن window.`;
+                logger.error(errorMessage);
+                reject(new Error(errorMessage));
+            }
         };
-        script.onerror = () => reject(new Error('فشل تحميل OpenCASCADE المحلي'));
-        document.head.appendChild(script);
+        scriptElement.onerror = (eventOrMessage: Event | string) => {
+            const errorMessage = `فشل تحميل البرنامج النصي لـ OpenCASCADE (${sourceName}) من المسار ${src}.`;
+            logger.error(errorMessage, eventOrMessage);
+            reject(new Error(errorMessage));
+        };
+        document.head.appendChild(scriptElement);
     });
 }
 
-async function loadFromCDN(): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/opencascade.js@2.0.0-beta.b5e5073/dist/opencascade.wasm.js';
-        script.onload = () => {
-            setTimeout(() => {
-                if ((window as any).OpenCascade) {
-                    (window as any).OpenCascadeModule = (window as any).OpenCascade;
-                    resolve();
-                } else {
-                    reject(new Error('فشل تهيئة OpenCASCADE من CDN'));
-                }
-            }, 2000);
+async function createMockOpenCascadeFactory(): Promise<void> {
+    logger.warn('يجري الآن استخدام OpenCascade factory مُحاكى لأغراض الاختبار.');
+    (window as any).globalOpenCascadeFactory = async function() { 
+        const mockOC = {
+            gp_Pnt_1: function(x: number, y: number, z: number) {
+                return { 
+                    X: () => x, Y: () => y, Z: () => z, 
+                    delete: () => {},
+                    Transformed: (_t: any) => this
+                };
+            },
+            gp_Dir_1: function(_x: number, _y: number, _z: number) {
+                return { delete: () => {} };
+            },
+            gp_Ax2_2: function(_p: any, _d: any) {
+                return { delete: () => {} };
+            },
+            gp_Vec_1: function(_x: number, _y: number, _z: number) {
+                return { delete: () => {} };
+            },
+            gp_Trsf_1: function() {
+                return { 
+                    SetTranslation_1: () => {},
+                    SetRotation_1: () => {},
+                    SetScale_1: () => {},
+                    delete: () => {}
+                };
+            },
+            BRepBuilderAPI_MakeVertex: function(_p: any) {
+                return { IsDone: () => true, Vertex: () => ({}) };
+            },
+            GC_MakeSegment_1: function(_p1: any, _p2: any) {
+                return { IsDone: () => true, Value: () => ({}) };
+            },
+            BRepBuilderAPI_MakeEdge_2: function(_curve: any) {
+                return { IsDone: () => true, Edge: () => ({}) };
+            },
+            GC_MakeCircle_2: function(_axis: any, _radius: number) {
+                return { IsDone: () => true, Value: () => ({}) };
+            },
+            BRepBuilderAPI_MakeEdge_1: function(_p1: any, _p2: any) {
+                return { IsDone: () => true, Edge: () => ({}) };
+            },
+            BRepBuilderAPI_MakeWire_1: function() {
+                return { 
+                    Add_1: () => {},
+                    IsDone: () => true, 
+                    Wire: () => ({}) 
+                };
+            },
+            BRepBuilderAPI_MakeFace_2: function(_wire: any) {
+                return { IsDone: () => true, Face: () => ({}) };
+            },
+            BRepPrimAPI_MakeBox_2: function(_w: number, _h: number, _d: number) {
+                return { IsDone: () => true, Shape: () => ({}) };
+            },
+            BRepPrimAPI_MakeBox_3: function(_p: any, _w: number, _h: number, _d: number) {
+                return { IsDone: () => true, Shape: () => ({}) };
+            },
+            BRepPrimAPI_MakeSphere_2: function(_center: any, _radius: number) {
+                return { IsDone: () => true, Shape: () => ({}) };
+            },
+            BRepPrimAPI_MakeCylinder_2: function(_axis: any, _radius: number, _height: number) {
+                return { IsDone: () => true, Shape: () => ({}) };
+            },
+            BRepAlgoAPI_Fuse_1: function(_s1: any, _s2: any) {
+                return { IsDone: () => true, Shape: () => ({}), Build: () => {} };
+            },
+            BRepAlgoAPI_Cut_1: function(_s1: any, _s2: any) {
+                return { IsDone: () => true, Shape: () => ({}), Build: () => {} };
+            },
+            BRepAlgoAPI_Common_1: function(_s1: any, _s2: any) {
+                return { IsDone: () => true, Shape: () => ({}), Build: () => {} };
+            },
+            BRepBuilderAPI_Transform_2: function(_shape: any, _transform: any) {
+                return { IsDone: () => true, Shape: () => ({}), Build: () => {} };
+            },
+            BRepMesh_IncrementalMesh_2: function() {},
+            Bnd_Box_1: function() {
+                return {
+                    IsVoid: () => false,
+                    CornerMin: () => ({ X: () => 0, Y: () => 0, Z: () => 0, delete: () => {} }),
+                    CornerMax: () => ({ X: () => 1, Y: () => 1, Z: () => 1, delete: () => {} }),
+                    delete: () => {}
+                };
+            },
+            BRepBndLib: { Add: () => {} },
+            GProp_GProps_1: function() {
+                return {
+                    Mass: () => 1,
+                    CentreOfMass: () => ({ X: () => 0, Y: () => 0, Z: () => 0, delete: () => {} }),
+                    delete: () => {}
+                };
+            },
+            BRepGProp: {
+                VolumeProperties_1: () => {},
+                SurfaceProperties_1: () => {}
+            },
+            TopExp_Explorer_2: function(_shape: any, _type: any) {
+                return {
+                    More: () => false,
+                    Next: () => {},
+                    Current: () => ({})
+                };
+            },
+            TopAbs_ShapeEnum: {
+                TopAbs_VERTEX: 0,
+                TopAbs_EDGE: 1,
+                TopAbs_FACE: 4,
+                TopAbs_SHELL: 5,
+                TopAbs_SOLID: 6
+            },
+            TopoDS: {
+                Face_1: (shape: any) => shape
+            },
+            TopLoc_Location_1: function() {
+                return {
+                    Transformation: () => ({ delete: () => {} }),
+                    delete: () => {}
+                };
+            },
+            BRep_Tool: {
+                Triangulation: () => ({
+                    IsNull: () => true,
+                    NbNodes: () => 0,
+                    NbTriangles: () => 0,
+                    Node: () => ({ X: () => 0, Y: () => 0, Z: () => 0 }),
+                    Triangle: () => ({ Value: () => 1 })
+                })
+            }
         };
-        script.onerror = () => reject(new Error('فشل تحميل OpenCASCADE من CDN'));
-        document.head.appendChild(script);
-    });
-}
-
-async function createMockEngine(): Promise<void> {
-    logger.warn('استخدام محرك وهمي للاختبار');
-    
-    const mockOC = {
-        gp_Pnt_1: function(x: number, y: number, z: number) {
-            return { 
-                X: () => x, Y: () => y, Z: () => z, 
-                delete: () => {},
-                Transformed: (_t: any) => this
-            };
-        },
-        gp_Dir_1: function(_x: number, _y: number, _z: number) {
-            return { delete: () => {} };
-        },
-        gp_Ax2_2: function(_p: any, _d: any) {
-            return { delete: () => {} };
-        },
-        gp_Vec_1: function(_x: number, _y: number, _z: number) {
-            return { delete: () => {} };
-        },
-        gp_Trsf_1: function() {
-            return { 
-                SetTranslation_1: () => {},
-                SetRotation_1: () => {},
-                SetScale_1: () => {},
-                delete: () => {}
-            };
-        },
-        BRepBuilderAPI_MakeVertex: function(_p: any) {
-            return { IsDone: () => true, Vertex: () => ({}) };
-        },
-        GC_MakeSegment_1: function(_p1: any, _p2: any) {
-            return { IsDone: () => true, Value: () => ({}) };
-        },
-        BRepBuilderAPI_MakeEdge_2: function(_curve: any) {
-            return { IsDone: () => true, Edge: () => ({}) };
-        },
-        GC_MakeCircle_2: function(_axis: any, _radius: number) {
-            return { IsDone: () => true, Value: () => ({}) };
-        },
-        BRepPrimAPI_MakeBox_2: function(_w: number, _h: number, _d: number) {
-            return { IsDone: () => true, Shape: () => ({}) };
-        },
-        BRepPrimAPI_MakeSphere_2: function(_center: any, _radius: number) {
-            return { IsDone: () => true, Shape: () => ({}) };
-        },
-        BRepPrimAPI_MakeCylinder_2: function(_axis: any, _radius: number, _height: number) {
-            return { IsDone: () => true, Shape: () => ({}) };
-        },
-        BRepAlgoAPI_Fuse_1: function(_s1: any, _s2: any) {
-            return { IsDone: () => true, Shape: () => ({}), Build: () => {} };
-        },
-        BRepAlgoAPI_Cut_1: function(_s1: any, _s2: any) {
-            return { IsDone: () => true, Shape: () => ({}), Build: () => {} };
-        },
-        BRepAlgoAPI_Common_1: function(_s1: any, _s2: any) {
-            return { IsDone: () => true, Shape: () => ({}), Build: () => {} };
-        },
-        BRepBuilderAPI_Transform_2: function(_shape: any, _transform: any) {
-            return { IsDone: () => true, Shape: () => ({}), Build: () => {} };
-        },
-        BRepMesh_IncrementalMesh_2: function() {},
-        Bnd_Box_1: function() {
-            return {
-                IsVoid: () => false,
-                CornerMin: () => ({ X: () => 0, Y: () => 0, Z: () => 0, delete: () => {} }),
-                CornerMax: () => ({ X: () => 1, Y: () => 1, Z: () => 1, delete: () => {} }),
-                delete: () => {}
-            };
-        },
-        BRepBndLib: { Add: () => {} },
-        GProp_GProps_1: function() {
-            return {
-                Mass: () => 1,
-                CentreOfMass: () => ({ X: () => 0, Y: () => 0, Z: () => 0, delete: () => {} }),
-                delete: () => {}
-            };
-        },
-        BRepGProp: {
-            VolumeProperties_1: () => {},
-            SurfaceProperties_1: () => {}
-        },
-        TopExp_Explorer_2: function(_shape: any, _type: any) {
-            return {
-                More: () => false,
-                Next: () => {},
-                Current: () => ({})
-            };
-        },
-        TopAbs_ShapeEnum: {
-            TopAbs_VERTEX: 0,
-            TopAbs_EDGE: 1,
-            TopAbs_FACE: 4,
-            TopAbs_SHELL: 5,
-            TopAbs_SOLID: 6
-        },
-        TopoDS: {
-            Face_1: (shape: any) => shape
-        },
-        TopLoc_Location_1: function() {
-            return {
-                Transformation: () => ({ delete: () => {} }),
-                delete: () => {}
-            };
-        },
-        BRep_Tool: {
-            Triangulation: () => ({
-                IsNull: () => true,
-                NbNodes: () => 0,
-                NbTriangles: () => 0,
-                Node: () => ({ X: () => 0, Y: () => 0, Z: () => 0 }),
-                Triangle: () => ({ Value: () => 1 })
-            })
-        }
+        logger.info('تم توفير OpenCascade factory وهمي.');
+        return Promise.resolve(mockOC); 
     };
-    
-    (window as any).OpenCascadeModule = function() {
-        return Promise.resolve(mockOC);
-    };
-    
-    logger.info('تم إنشاء محرك وهمي');
+    return Promise.resolve();
 }
 
 /**
@@ -1030,7 +1032,7 @@ function deleteSelectedObjects(): void {
             const object = appState.project.activeObjects.get(objectId);
             if (object) {
                 // استخدم واجهة عامة لإزالة الكائن من المشاهد مع تجاوز التحقق من TypeScript
-                                (appState.viewer as any)?.removeObject?.(objectId);
+                (appState.viewer as any)?.removeGeometricObject?.(objectId);
                 appState.project.activeObjects.delete(objectId);
             }
         });
@@ -1525,7 +1527,7 @@ function updateViewerSettings(): void {
     appState.viewer.updateViewSettings({
         showGrid: appState.ui.showGrid,
         showAxes: appState.ui.showAxes
-    });
+    } as Partial<ViewSettings>);
 }
 
 async function confirmSaveChanges(): Promise<boolean | null> {
@@ -1601,46 +1603,108 @@ function addNewLayer(): void {
     markProjectAsDirty();
 }
 
-// دوال للواجهة (سيتم استدعاؤها من HTML)
-(window as any).toggleLayerVisibility = (layerId: string) => {
+// ==================== دوال للواجهة (إتاحتها للنطاق العام) ====================
+
+// دوال إدارة الطبقات
+function editLayer(layerId: string): void {
+    const layer = appState.project.layers.get(layerId);
+    if (layer) {
+        const newName = prompt('اسم الطبقة الجديد:', layer.name);
+        if (newName && newName !== layer.name) {
+            layer.name = newName;
+            updateLayersDisplay();
+            markProjectAsDirty();
+        }
+    }
+}
+
+function deleteLayer(layerId: string): void {
+    if (layerId === 'default') {
+        showWarningMessage('لا يمكن حذف الطبقة الافتراضية');
+        return;
+    }
+    
+    const layer = appState.project.layers.get(layerId);
+    if (layer && confirm(`هل تريد حذف الطبقة "${layer.name}"؟`)) {
+        appState.project.layers.delete(layerId);
+        
+        // نقل الكائنات إلى الطبقة الافتراضية
+        appState.project.activeObjects.forEach(obj => {
+            if (obj.layerId === layerId) {
+                obj.layerId = 'default';
+            }
+        });
+        
+        updateLayersDisplay();
+        markProjectAsDirty();
+    }
+}
+
+function toggleLayerVisibility(layerId: string): void {
     const layer = appState.project.layers.get(layerId);
     if (layer) {
         layer.visible = !layer.visible;
         markProjectAsDirty();
         // تحديث عرض الكائنات في هذه الطبقة
+        updateLayerObjectsVisibility(layerId, layer.visible);
     }
-};
+}
 
-(window as any).selectLayer = (layerId: string) => {
+function selectLayer(layerId: string): void {
     appState.ui.activeLayer = layerId;
     updateLayersDisplay();
-};
+}
 
-(window as any).updateObjectColor = (objectId: string, color: string) => {
+function updateLayerObjectsVisibility(layerId: string, visible: boolean): void {
+    appState.project.activeObjects.forEach(obj => {
+        if (obj.layerId === layerId) {
+            // تحديث رؤية الكائن في المشهد
+            if (appState.viewer) {
+                // استخدام دالة عامة لتحديث رؤية الكائن
+                (appState.viewer as any).setObjectVisibility?.(obj.id, visible);
+            }
+        }
+    });
+}
+
+// دوال تحديث خصائص الكائنات
+function updateObjectColor(objectId: string, color: string): void {
     const object = appState.project.activeObjects.get(objectId);
     if (object) {
         object.visualProperties = { ...object.visualProperties, color };
         markProjectAsDirty();
+        // تحديث اللون في المشهد
+        if (appState.viewer) {
+            (appState.viewer as any).updateObjectColor?.(objectId, color);
+        }
     }
-};
+}
 
-(window as any).updateObjectOpacity = (objectId: string, opacity: string) => {
+function updateObjectOpacity(objectId: string, opacity: string): void {
     const object = appState.project.activeObjects.get(objectId);
     if (object) {
         object.visualProperties = { ...object.visualProperties, opacity: parseFloat(opacity) };
         markProjectAsDirty();
+        // تحديث الشفافية في المشهد
+        if (appState.viewer) {
+            (appState.viewer as any).updateObjectOpacity?.(objectId, parseFloat(opacity));
+        }
     }
-};
+}
+
+// إتاحة الدوال للنطاق العام
+(window as any).editLayer = editLayer;
+(window as any).deleteLayer = deleteLayer;
+(window as any).toggleLayerVisibility = toggleLayerVisibility;
+(window as any).selectLayer = selectLayer;
+(window as any).updateObjectColor = updateObjectColor;
+(window as any).updateObjectOpacity = updateObjectOpacity;
 
 // دوال مراقبة الأداء
 function startPerformanceMonitoring(): void {
     setInterval(() => {
         if (appState.viewer) {
-            // تحويل صريح لأن ‎getPerformanceStats‎ يُعيد كائن إحصاءات غير مُعرّف النوع
-            const stats = appState.viewer.getPerformanceStats() as unknown as {
-                fps: number;
-                objectCount: number;
-            };
+            const stats = appState.viewer.getPerformanceStats();
             
             // تحذيرات الأداء
             if (stats.fps < 30) {

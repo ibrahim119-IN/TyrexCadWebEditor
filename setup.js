@@ -16,22 +16,21 @@ if (!fs.existsSync(assetsDir)) {
 const sourceDir = path.join(__dirname, 'node_modules', 'opencascade.js', 'dist');
 
 if (fs.existsSync(sourceDir)) {
-    const files = fs.readdirSync(sourceDir);
-    
-    files.forEach(file => {
+    const filesToCopy = fs.readdirSync(sourceDir).filter(file =>
+        file.startsWith('opencascade') // لنسخ opencascade.wasm.js, opencascade.wasm, وأي ملفات أخرى تبدأ بهذا الاسم
+    );
+
+    filesToCopy.forEach(file => {
         const sourcePath = path.join(sourceDir, file);
         const destPath = path.join(assetsDir, file);
-        
         try {
             fs.copyFileSync(sourcePath, destPath);
-            console.log(`✓ تم نسخ ${file}`);
+            console.log(`✓ تم نسخ ${file} إلى ${destPath}`);
         } catch (error) {
             console.error(`❌ فشل نسخ ${file}:`, error.message);
         }
     });
-    
     console.log('✅ تم إعداد OpenCASCADE بنجاح');
 } else {
-    console.error('❌ مجلد opencascade.js غير موجود');
-    console.log('تشغيل: npm install opencascade.js --force');
+    console.error('❌ مجلد node_modules/opencascade.js/dist غير موجود. تأكد من تثبيت المكتبة.');
 }

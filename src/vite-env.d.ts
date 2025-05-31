@@ -4,6 +4,7 @@ declare global {
   interface Window {
     OpenCascadeModule: any;
     OpenCascade: any;
+    globalOpenCascadeFactory: any;
     appState?: any;
     logger?: any;
   }

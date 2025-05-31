@@ -132,39 +132,43 @@ export class GeometryEngine {
 
     private async _doInitialize(): Promise<void> {
         try {
-            this.logger.info('تهيئة GeometryEngine المتقدم...');
-            
-            const OpenCascadeModule = (window as any).OpenCascadeModule;
-            if (!OpenCascadeModule) {
-                throw new Error('OpenCASCADE.js غير محمل');
+            this.logger.info('الشروع في تهيئة وحدة GeometryEngine المتقدمة...');
+
+            const factoryFunction = (window as any).globalOpenCascadeFactory;
+            if (!factoryFunction || typeof factoryFunction !== 'function') {
+                throw new Error('لم يتم العثور على دالة المصنع OpenCascadeModule (globalOpenCascadeFactory) ضمن الكائن window أو أنها ليست دالة.');
             }
 
-            this.oc = await OpenCascadeModule({
-                locateFile: (path: string) => {
+            this.oc = await factoryFunction({
+                locateFile: (path: string, scriptDirectory: string) => {
+                    // يُفترض أن يكون هذا المسار صحيحًا نسبةً إلى الملفات المنسوخة إلى public/assets/opencascade/
+                    // يقوم Vite بتقديم الملفات من publicDir كمسار جذري '/'
                     if (path.endsWith('.wasm')) {
                         return '/assets/opencascade/opencascade.wasm';
                     }
-                    return `/assets/opencascade/${path}`;
+                    // هذا المسار مُخصص للعمال (workers) أو ملفات البيانات الأخرى إذا كانت المكتبة تستخدمها.
+                    // قد يستدعي الأمر تعديل هذا المسار بناءً على هيكلية ملفات opencascade.js المُستخدمة.
+                    return `/assets/opencascade/${path}`; 
                 },
                 onRuntimeInitialized: () => {
-                    this.logger.debug('تم تهيئة OpenCASCADE Runtime');
+                    this.logger.debug('تم إتمام تهيئة بيئة التشغيل الخاصة بـ OpenCASCADE ضمن وحدة GeometryEngine.');
                 }
             });
 
             if (!this.oc) {
-                throw new Error('فشل في تهيئة OpenCASCADE');
+                throw new Error('إخفاق في إنشاء نسخة من OpenCASCADE داخل وحدة GeometryEngine.');
             }
 
-            // اختبار العمليات الأساسية
-            await this.runInitializationTests();
-            
+            await this.runInitializationTests(); // يُرجى التأكد من أن هذه الدالة لا تعتمد على وظائف غير متوفرة في كائن mockOC في حال إجراء الاختبارات بدونه.
+
             this.initialized = true;
-            this.logger.info('تم تهيئة GeometryEngine بنجاح');
-            
-        } catch (error) {
-            this.logger.error('فشلت تهيئة GeometryEngine:', error);
+            this.logger.info('تم بنجاح تهيئة وحدة GeometryEngine باستخدام دالة المصنع المُحملة.');
+
+        } catch (errorInstance) {
+            const error = errorInstance as Error;
+            this.logger.error('إخفاق في عملية تهيئة وحدة GeometryEngine:', error);
             this.initialized = false;
-            throw error;
+            throw error; // يُعاد رمي الخطأ ليتم اعتراضه ومعالجته في دالة initializeApplication.
         }
     }
 
