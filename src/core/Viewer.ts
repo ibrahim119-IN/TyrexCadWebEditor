@@ -60,7 +60,7 @@ export class Viewer {
     getPerformanceStats() {
         throw new Error('Method not implemented.');
     }
-    updateViewSettings(arg0: { showGrid: boolean; showAxes: boolean; }) {
+    updateViewSettings(_arg0: { showGrid: boolean; showAxes: boolean; }) {
         throw new Error('Method not implemented.');
     }
     private container: HTMLElement;
@@ -445,7 +445,7 @@ export class Viewer {
         }
     }
 
-    private onMouseUp(e: MouseEvent): void {
+    private onMouseUp(_e: MouseEvent): void {
         // معالج رفع الماوس
     }
 

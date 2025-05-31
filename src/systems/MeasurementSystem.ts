@@ -80,6 +80,9 @@ export class MeasurementSystem {
         this.dimensionGroup = new Group();
         this.dimensionGroup.name = 'dimensions';
         this.logger = Logger.getInstance();
+
+        // Ensure the dimension objects are part of the scene rendered by CSS2DRenderer
+        this.scene.add(this.dimensionGroup);
         
         this.setupCSS2DRenderer();
     }
@@ -506,7 +509,7 @@ export class MeasurementSystem {
 
     /**
      * Render dimensions
-     */
+            this.css2DRenderer.render(this.scene, this.camera);
     public render(): void {
         if (this.css2DRenderer && this.camera) {
             this.css2DRenderer.render(this.dimensionGroup, this.camera);

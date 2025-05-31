@@ -328,16 +328,16 @@ async function createMockEngine(): Promise<void> {
             return { 
                 X: () => x, Y: () => y, Z: () => z, 
                 delete: () => {},
-                Transformed: (t: any) => this
+                Transformed: (_t: any) => this
             };
         },
-        gp_Dir_1: function(x: number, y: number, z: number) {
+        gp_Dir_1: function(_x: number, _y: number, _z: number) {
             return { delete: () => {} };
         },
-        gp_Ax2_2: function(p: any, d: any) {
+        gp_Ax2_2: function(_p: any, _d: any) {
             return { delete: () => {} };
         },
-        gp_Vec_1: function(x: number, y: number, z: number) {
+        gp_Vec_1: function(_x: number, _y: number, _z: number) {
             return { delete: () => {} };
         },
         gp_Trsf_1: function() {
@@ -348,37 +348,37 @@ async function createMockEngine(): Promise<void> {
                 delete: () => {}
             };
         },
-        BRepBuilderAPI_MakeVertex: function(p: any) {
+        BRepBuilderAPI_MakeVertex: function(_p: any) {
             return { IsDone: () => true, Vertex: () => ({}) };
         },
-        GC_MakeSegment_1: function(p1: any, p2: any) {
+        GC_MakeSegment_1: function(_p1: any, _p2: any) {
             return { IsDone: () => true, Value: () => ({}) };
         },
-        BRepBuilderAPI_MakeEdge_2: function(curve: any) {
+        BRepBuilderAPI_MakeEdge_2: function(_curve: any) {
             return { IsDone: () => true, Edge: () => ({}) };
         },
-        GC_MakeCircle_2: function(axis: any, radius: number) {
+        GC_MakeCircle_2: function(_axis: any, _radius: number) {
             return { IsDone: () => true, Value: () => ({}) };
         },
-        BRepPrimAPI_MakeBox_2: function(w: number, h: number, d: number) {
+        BRepPrimAPI_MakeBox_2: function(_w: number, _h: number, _d: number) {
             return { IsDone: () => true, Shape: () => ({}) };
         },
-        BRepPrimAPI_MakeSphere_2: function(center: any, radius: number) {
+        BRepPrimAPI_MakeSphere_2: function(_center: any, _radius: number) {
             return { IsDone: () => true, Shape: () => ({}) };
         },
-        BRepPrimAPI_MakeCylinder_2: function(axis: any, radius: number, height: number) {
+        BRepPrimAPI_MakeCylinder_2: function(_axis: any, _radius: number, _height: number) {
             return { IsDone: () => true, Shape: () => ({}) };
         },
-        BRepAlgoAPI_Fuse_1: function(s1: any, s2: any) {
+        BRepAlgoAPI_Fuse_1: function(_s1: any, _s2: any) {
             return { IsDone: () => true, Shape: () => ({}), Build: () => {} };
         },
-        BRepAlgoAPI_Cut_1: function(s1: any, s2: any) {
+        BRepAlgoAPI_Cut_1: function(_s1: any, _s2: any) {
             return { IsDone: () => true, Shape: () => ({}), Build: () => {} };
         },
-        BRepAlgoAPI_Common_1: function(s1: any, s2: any) {
+        BRepAlgoAPI_Common_1: function(_s1: any, _s2: any) {
             return { IsDone: () => true, Shape: () => ({}), Build: () => {} };
         },
-        BRepBuilderAPI_Transform_2: function(shape: any, transform: any) {
+        BRepBuilderAPI_Transform_2: function(_shape: any, _transform: any) {
             return { IsDone: () => true, Shape: () => ({}), Build: () => {} };
         },
         BRepMesh_IncrementalMesh_2: function() {},
@@ -402,7 +402,7 @@ async function createMockEngine(): Promise<void> {
             VolumeProperties_1: () => {},
             SurfaceProperties_1: () => {}
         },
-        TopExp_Explorer_2: function(shape: any, type: any) {
+        TopExp_Explorer_2: function(_shape: any, _type: any) {
             return {
                 More: () => false,
                 Next: () => {},
@@ -1577,7 +1577,7 @@ async function loadProjectData(data: string): Promise<void> {
 }
 
 // دوال مساعدة للاستيراد والتصدير
-async function importFile(file?: File): Promise<void> {
+async function importFile(_file?: File): Promise<void> {
     // تنفيذ استيراد الملفات
     logger.info('استيراد ملف');
 }

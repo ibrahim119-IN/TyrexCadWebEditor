@@ -297,7 +297,7 @@ export class GeometryEngine {
         });
     }
 
-    public createRectangle(corner1: Point3D, corner2: Point3D, height: number = 0): OCFaceHandle {
+    public createRectangle(corner1: Point3D, corner2: Point3D, _height: number = 0): OCFaceHandle {
         this.ensureInitialized();
         return this.executeWithProfiling('createRectangle', () => {
             const p1 = new this.oc.gp_Pnt_1(corner1.x, corner1.y, corner1.z);
@@ -865,7 +865,7 @@ export class GeometryEngine {
     }
 
     public clearCache(): void {
-        this.shapeCache.forEach((shape, handle) => {
+        this.shapeCache.forEach((_shape, handle) => {
             this.deleteShape(handle);
         });
         

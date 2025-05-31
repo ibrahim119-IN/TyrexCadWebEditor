@@ -808,7 +808,7 @@ export abstract class AbstractDrawTool {
         );
     }
 
-    private gatherPointMetadata(point: Vector3): any {
+    private gatherPointMetadata(_point: Vector3): any {
         return {
             snapType: this.lastSnapResult?.type,
             constraints: { ...this.constraints },
