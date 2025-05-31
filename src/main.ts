@@ -244,69 +244,97 @@ const logger = Logger.getInstance();
  * تحميل OpenCASCADE مع نظام fallback متقدم
  */
 async function loadOpenCASCADE(): Promise<void> {
-    return new Promise((resolve, reject) => {
-        if (typeof (window as any).globalOpenCascadeFactory === 'function') {
-            logger.info('OpenCascade factory (globalOpenCascadeFactory) موجود مسبقاً.');
-            resolve();
-            return;
-        }
-
-        updateLoadingProgress(10, 'تحميل OpenCASCADE...');
+    updateLoadingProgress(10, 'تحميل OpenCASCADE...');
+    
+    try {
+        const script = document.createElement('script');
+        script.src = '/assets/opencascade/opencascade.wasm.js';
         
-        // نظام fallback ذكي
-        const loadStrategies = [
-            () => loadScriptAndSetFactory('/assets/opencascade/opencascade.wasm.js', 'محلي'),
-            () => loadScriptAndSetFactory('https://unpkg.com/opencascade.js@2.0.0-beta.b5e5073/dist/opencascade.wasm.js', 'CDN'),
-            () => createMockOpenCascadeFactory()
-        ];
-        
-        let currentStrategy = 0;
-        
-        function tryNextStrategy() {
-            if (currentStrategy >= loadStrategies.length) {
-                reject(new Error('فشل تحميل OpenCASCADE من جميع المصادر'));
-                return;
-            }
+        await new Promise<void>((resolve, reject) => {
+            script.onload = async () => {
+                // انتظار حتى يتم تعريف opencascade
+                let attempts = 0;
+                const checkInterval = setInterval(() => {
+                    attempts++;
+                    
+                    if (typeof (window as any).opencascade !== 'undefined') {
+                        clearInterval(checkInterval);
+                        
+                        // استخدم المكتبة مباشرة
+                        (window as any).globalOpenCascadeFactory = async () => {
+                            return (window as any).opencascade;
+                        };
+                        
+                        logger.info('OpenCASCADE جاهز');
+                        resolve();
+                    } else if (attempts > 50) { // 5 ثواني
+                        clearInterval(checkInterval);
+                        reject(new Error('Timeout loading OpenCASCADE'));
+                    }
+                }, 100);
+            };
             
-            const strategy = loadStrategies[currentStrategy++];
-            
-            strategy()
-                .then(resolve)
-                .catch((error) => {
-                    logger.warn(`فشلت الاستراتيجية ${currentStrategy}: ${error.message}`);
-                    tryNextStrategy();
-                });
-        }
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
         
-        tryNextStrategy();
-    });
+    } catch (error) {
+        logger.error('فشل تحميل OpenCASCADE:', error);
+        await createMockOpenCascadeFactory();
+    }
 }
 
 async function loadScriptAndSetFactory(src: string, sourceName: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-        logger.info(`محاولة تحميل OpenCASCADE factory من ${sourceName} (${src})`);
-        const scriptElement = document.createElement('script');
-        scriptElement.src = src;
-        scriptElement.async = true;
+    logger.info(`محاولة تحميل OpenCASCADE factory من ${sourceName} (${src})`);
+
+    // استخدام script tag لجميع المصادر
+    const scriptElement = document.createElement('script');
+    scriptElement.src = src;
+    scriptElement.async = true;
+
+    return new Promise<void>((resolve, reject) => {
+        let checkInterval: number | undefined;
+        const startTime = Date.now();
+        const timeoutMs = 15000;
+
         scriptElement.onload = () => {
+            logger.info(`تم تحميل البرنامج النصي لـ OpenCASCADE (${sourceName}) من المسار ${src}. جاري التحقق من التهيئة...`);
+            
+            // فحص فوري
             if (typeof (window as any).OpenCascadeModule === 'function') {
                 (window as any).globalOpenCascadeFactory = (window as any).OpenCascadeModule;
                 logger.info(`OpenCascadeModule factory (${sourceName}) جاهز الآن ضمن window.globalOpenCascadeFactory.`);
                 resolve();
-            } else {
-                const errorMessage = `فشل تهيئة OpenCASCADE (${sourceName}) - لم يتم العثور على دالة OpenCascadeModule ضمن الكائن window.`;
-                logger.error(errorMessage);
-                reject(new Error(errorMessage));
+                return;
             }
+            
+            // فحص دوري
+            checkInterval = window.setInterval(() => {
+                if (typeof (window as any).OpenCascadeModule === 'function') {
+                    clearInterval(checkInterval);
+                    (window as any).globalOpenCascadeFactory = (window as any).OpenCascadeModule;
+                    logger.info(`OpenCascadeModule factory (${sourceName}) جاهز الآن ضمن window.globalOpenCascadeFactory.`);
+                    resolve();
+                } else if (Date.now() - startTime > timeoutMs) {
+                    clearInterval(checkInterval);
+                    const errorMessage = `فشل تهيئة OpenCASCADE (${sourceName}) - لم يتم العثور على دالة OpenCascadeModule ضمن الكائن window بعد ${timeoutMs / 1000} ثانية.`;
+                    logger.error(errorMessage);
+                    reject(new Error(errorMessage));
+                }
+            }, 200);
         };
+
         scriptElement.onerror = (eventOrMessage: Event | string) => {
+            if (checkInterval) clearInterval(checkInterval);
             const errorMessage = `فشل تحميل البرنامج النصي لـ OpenCASCADE (${sourceName}) من المسار ${src}.`;
             logger.error(errorMessage, eventOrMessage);
             reject(new Error(errorMessage));
         };
+        
         document.head.appendChild(scriptElement);
     });
 }
+
 
 async function createMockOpenCascadeFactory(): Promise<void> {
     logger.warn('يجري الآن استخدام OpenCascade factory مُحاكى لأغراض الاختبار.');
