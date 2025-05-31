@@ -1,7 +1,5 @@
 /**
- * main.ts - نقطة الدخول المحدثة لتطبيق TyrexWebCad
- * 
- * محدث للتكامل مع النظام الجديد وأدوات الرسم
+ * main.ts - إصلاح نهائي لتحميل OpenCASCADE
  */
 
 import './styles/main.css';
@@ -46,15 +44,86 @@ const appState: AppState = {
 
 const logger = Logger.getInstance();
 
+// تحميل OpenCASCADE مع جميع الأسماء المحتملة
+async function loadOpenCASCADE(): Promise<void> {
+    return new Promise((resolve, reject) => {
+        if ((window as any).OpenCascadeModule) {
+            resolve();
+            return;
+        }
+
+        updateLoadingProgress(10, 'جاري تحميل OpenCASCADE...');
+        
+        // جميع الأسماء المحتملة للملفات
+        const possiblePaths = [
+            '/assets/opencascade/opencascade.wasm.js',  // الاسم الفعلي الموجود
+            '/assets/opencascade/opencascade.js',       // الاسم المتوقع
+            'https://unpkg.com/opencascade.js@1.1.1/dist/opencascade.js',  // CDN
+        ];
+
+        let currentPathIndex = 0;
+
+        function tryLoadPath(pathIndex: number) {
+            if (pathIndex >= possiblePaths.length) {
+                reject(new Error('فشل تحميل OpenCASCADE من جميع المسارات'));
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = possiblePaths[pathIndex];
+            script.async = true;
+            
+            updateLoadingProgress(20 + (pathIndex * 15), `محاولة تحميل من مسار ${pathIndex + 1}...`);
+            
+            script.onload = () => {
+                updateLoadingProgress(60, 'تم التحميل، جاري التهيئة...');
+                
+                // انتظار تهيئة OpenCASCADE
+                setTimeout(() => {
+                    if (typeof (window as any).OpenCascade !== 'undefined') {
+                        (window as any).OpenCascadeModule = (window as any).OpenCascade;
+                        logger.info(`✓ تم تحميل OpenCASCADE من: ${possiblePaths[pathIndex]}`);
+                        resolve();
+                    } else if ((window as any).initOpenCascade) {
+                        // للإصدارات الحديثة
+                        (window as any).initOpenCascade().then((oc: any) => {
+                            (window as any).OpenCascadeModule = () => Promise.resolve(oc);
+                            logger.info(`✓ تم تحميل OpenCASCADE (modern) من: ${possiblePaths[pathIndex]}`);
+                            resolve();
+                        });
+                    } else {
+                        logger.warn(`⚠ فشل تهيئة OpenCASCADE من: ${possiblePaths[pathIndex]}`);
+                        tryLoadPath(pathIndex + 1);
+                    }
+                }, 1500);
+            };
+            
+            script.onerror = () => {
+                logger.warn(`⚠ فشل تحميل من: ${possiblePaths[pathIndex]}`);
+                document.head.removeChild(script);
+                tryLoadPath(pathIndex + 1);
+            };
+            
+            document.head.appendChild(script);
+        }
+
+        tryLoadPath(0);
+    });
+}
+
 async function initializeApp(): Promise<void> {
     try {
-        logger.info('بدء تهيئة TyrexWebCad...');
-        updateLoadingProgress(20, 'جاري تهيئة المحرك الهندسي...');
+        logger.info('🚀 بدء تهيئة TyrexWebCad...');
+        
+        // تحميل OpenCASCADE
+        await loadOpenCASCADE();
+        
+        updateLoadingProgress(70, 'جاري تهيئة المحرك الهندسي...');
         
         const geometryEngine = GeometryEngine.getInstance();
         await geometryEngine.initialize();
         
-        updateLoadingProgress(40, 'جاري إنشاء المشاهد...');
+        updateLoadingProgress(80, 'جاري إنشاء المشاهد...');
         
         const viewerContainer = document.getElementById('viewer-container');
         if (!viewerContainer) {
@@ -74,12 +143,11 @@ async function initializeApp(): Promise<void> {
             throw new Error('فشلت تهيئة المشاهد');
         }
         
-        updateLoadingProgress(60, 'جاري إنشاء الأدوات...');
+        updateLoadingProgress(90, 'جاري إنشاء الأدوات...');
         
-        // إنشاء الأنظمة والأدوات
         await initializeTools();
         
-        updateLoadingProgress(80, 'جاري ربط الأحداث...');
+        updateLoadingProgress(95, 'جاري ربط الأحداث...');
         
         setupUIEvents();
         loadSettings();
@@ -87,15 +155,30 @@ async function initializeApp(): Promise<void> {
         updateLoadingProgress(100, 'اكتمل التحميل!');
         
         setTimeout(() => {
-            window.dispatchEvent(new Event('app-initialized'));
+            hideLoadingScreen();
             appState.isInitialized = true;
-            logger.info('تم تهيئة TyrexWebCad بنجاح');
-            showToast('مرحباً بك في TyrexWebCad', 'success');
+            logger.info('✅ تم تهيئة TyrexWebCad بنجاح');
+            showToast('🎉 مرحباً بك في TyrexWebCad - جاهز للاستخدام!', 'success');
         }, 500);
         
     } catch (error) {
-        logger.error('فشلت تهيئة التطبيق:', error);
-        showErrorDialog('خطأ في التهيئة', 'فشل تحميل التطبيق. يرجى تحديث الصفحة والمحاولة مرة أخرى.');
+        logger.error('❌ فشلت تهيئة التطبيق:', error);
+        updateLoadingProgress(0, 'فشل التحميل');
+        
+        let errorMessage = 'فشل تحميل التطبيق.';
+        if (error instanceof Error) {
+            if (error.message.includes('OpenCASCADE')) {
+                errorMessage = 'فشل تحميل OpenCASCADE. سيتم المحاولة مرة أخرى...';
+                // محاولة أخرى بعد 3 ثوان
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
+            } else {
+                errorMessage = error.message;
+            }
+        }
+        
+        showErrorDialog('خطأ في التهيئة', errorMessage);
     }
 }
 
@@ -103,13 +186,14 @@ async function initializeTools(): Promise<void> {
     try {
         const geometryEngine = GeometryEngine.getInstance();
         
-        // إنشاء نظام الانجذاب
         appState.snapSystem = new SnapSystem();
         
-        // الحصول على نظام القياسات من المشاهد
-        const measurementSystem = (appState.viewer as any).measurementSystem;
+        const dummyCamera = {} as any;
+        const measurementSystem = new MeasurementSystem(
+            document.getElementById('viewer-container')!,
+            dummyCamera
+        );
         
-        // إنشاء أدوات الرسم
         appState.tools.drawLine = new DrawLineTool(
             geometryEngine,
             appState.commandManager,
@@ -126,13 +210,12 @@ async function initializeTools(): Promise<void> {
             CircleDrawMode.CENTER_RADIUS
         );
         
-        // إنشاء أدوات التحرير
         appState.tools.move = new MoveTool(appState.commandManager);
         
-        logger.info('تم إنشاء جميع الأدوات بنجاح');
+        logger.info('✅ تم إنشاء جميع الأدوات بنجاح');
         
     } catch (error) {
-        logger.error('فشل إنشاء الأدوات:', error);
+        logger.error('❌ فشل إنشاء الأدوات:', error);
         throw error;
     }
 }
@@ -146,7 +229,7 @@ function setupUIEvents(): void {
     setupKeyboardShortcuts();
     setupViewerEvents();
     
-    logger.debug('تم ربط جميع أحداث واجهة المستخدم');
+    logger.debug('✅ تم ربط جميع أحداث واجهة المستخدم');
 }
 
 function setupFileButtons(): void {
@@ -179,14 +262,14 @@ function setupViewButtons(): void {
             appState.viewer!.setView(true);
             btn2D.classList.add('active');
             btn3D.classList.remove('active');
-            logger.info('تم التبديل إلى العرض ثنائي الأبعاد');
+            logger.info('🔄 تم التبديل إلى العرض ثنائي الأبعاد');
         });
         
         btn3D.addEventListener('click', () => {
             appState.viewer!.setView(false);
             btn3D.classList.add('active');
             btn2D.classList.remove('active');
-            logger.info('تم التبديل إلى العرض ثلاثي الأبعاد');
+            logger.info('🔄 تم التبديل إلى العرض ثلاثي الأبعاد');
         });
     }
 }
@@ -205,10 +288,8 @@ function setupDrawingTools(): void {
 }
 
 function setActiveTool(toolName: string): void {
-    // إلغاء تفعيل الأداة الحالية
     deactivateCurrentTool();
     
-    // تحديث واجهة المستخدم
     document.querySelectorAll('#drawing-tools .toolbar-btn').forEach(btn => {
         btn.classList.remove('active');
     });
@@ -220,7 +301,6 @@ function setActiveTool(toolName: string): void {
     
     appState.currentTool = toolName;
     
-    // تفعيل الأداة الجديدة
     switch (toolName) {
         case 'line':
             if (appState.tools.drawLine) {
@@ -236,16 +316,14 @@ function setActiveTool(toolName: string): void {
             break;
         case 'select':
         default:
-            // أداة التحديد
             break;
     }
     
-    logger.info(`تم تفعيل أداة: ${toolName}`);
+    logger.info(`🔧 تم تفعيل أداة: ${toolName}`);
 }
 
 function deactivateCurrentTool(): void {
     Object.values(appState.tools).forEach(tool => {
-        // نتجاوز فحص TypeScript لأن بعض الأدوات قد لا تملك ‎deactivate
         if (tool && typeof (tool as any).deactivate === 'function') {
             (tool as any).deactivate();
         }
@@ -255,9 +333,8 @@ function deactivateCurrentTool(): void {
 function setupToolEvents(tool: any): void {
     if (!appState.viewer) return;
     
-    // ربط أحداث الأداة مع المشاهد
     tool.on('completed', (data: any) => {
-        logger.info(`تم إكمال رسم ${data.object?.type}`);
+        logger.info(`✅ تم إكمال رسم ${data.object?.type}`);
         updateStatusBar(`تم إنشاء ${data.object?.type}`);
     });
     
@@ -297,7 +374,7 @@ function setupGridSettings(): void {
         snapCheckbox.addEventListener('change', (e) => {
             const target = e.target as HTMLInputElement;
             appState.snapSystem!.setGridEnabled(target.checked);
-            logger.info(`المحاذاة للشبكة: ${target.checked ? 'مفعلة' : 'معطلة'}`);
+            logger.info(`⚙️ المحاذاة للشبكة: ${target.checked ? 'مفعلة' : 'معطلة'}`);
         });
     }
     
@@ -306,7 +383,7 @@ function setupGridSettings(): void {
             const target = e.target as HTMLSelectElement;
             const size = parseFloat(target.value);
             appState.snapSystem!.setGridSize(size);
-            logger.info(`حجم الشبكة: ${size} متر`);
+            logger.info(`📏 حجم الشبكة: ${size} متر`);
         });
     }
 }
@@ -315,7 +392,6 @@ function setupKeyboardShortcuts(): void {
     document.addEventListener('keydown', (e) => {
         if ((e.target as HTMLElement).tagName === 'INPUT') return;
         
-        // اختصارات الأوامر
         if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
             e.preventDefault();
             if (appState.commandManager.canUndo()) {
@@ -330,7 +406,6 @@ function setupKeyboardShortcuts(): void {
             }
         }
         
-        // اختصارات الملف
         if (e.ctrlKey && e.key === 's') {
             e.preventDefault();
             saveProject();
@@ -348,13 +423,11 @@ function setupKeyboardShortcuts(): void {
             }
         }
         
-        // Escape لإلغاء العملية الحالية
         if (e.key === 'Escape') {
             deactivateCurrentTool();
             setActiveTool('select');
         }
         
-        // اختصارات الأدوات
         if (e.key === 'l' || e.key === 'L') {
             e.preventDefault();
             setActiveTool('line');
@@ -371,21 +444,21 @@ function setupViewerEvents(): void {
     if (!appState.viewer) return;
     
     appState.viewer.on('objectAdded', (object) => {
-        logger.debug('تمت إضافة كائن:', object);
+        logger.debug('✅ تمت إضافة كائن:', object);
         updateStatusBar(`تمت إضافة ${object.type}`);
     });
     
     appState.viewer.on('objectRemoved', (object) => {
-        logger.debug('تمت إزالة كائن:', object);
+        logger.debug('🗑️ تمت إزالة كائن:', object);
         updateStatusBar(`تمت إزالة ${object.type}`);
     });
 }
 
 function createNewProject(): void {
-    logger.info('إنشاء مشروع جديد...');
+    logger.info('📁 إنشاء مشروع جديد...');
     appState.commandManager.clear();
     updateStatusBar('تم إنشاء مشروع جديد');
-    showToast('تم إنشاء مشروع جديد', 'success');
+    showToast('📁 تم إنشاء مشروع جديد', 'success');
 }
 
 async function openProject(): Promise<void> {
@@ -393,21 +466,21 @@ async function openProject(): Promise<void> {
         const fileData = await appState.projectManager.openProject();
         if (fileData) {
             updateStatusBar('تم فتح المشروع بنجاح');
-            showToast('تم فتح المشروع', 'success');
+            showToast('📂 تم فتح المشروع', 'success');
         }
     } catch (error) {
-        logger.error('فشل فتح المشروع:', error);
-        showToast('فشل فتح المشروع', 'error');
+        logger.error('❌ فشل فتح المشروع:', error);
+        showToast('❌ فشل فتح المشروع', 'error');
     }
 }
 
 async function saveProject(): Promise<void> {
     try {
         updateStatusBar('تم حفظ المشروع بنجاح');
-        showToast('تم حفظ المشروع', 'success');
+        showToast('💾 تم حفظ المشروع', 'success');
     } catch (error) {
-        logger.error('فشل حفظ المشروع:', error);
-        showToast('فشل حفظ المشروع', 'error');
+        logger.error('❌ فشل حفظ المشروع:', error);
+        showToast('❌ فشل حفظ المشروع', 'error');
     }
 }
 
@@ -427,10 +500,10 @@ function loadSettings(): void {
                 if (snapCheckbox) snapCheckbox.checked = parsed.snapToGrid;
             }
             
-            logger.info('تم تحميل الإعدادات المحفوظة');
+            logger.info('⚙️ تم تحميل الإعدادات المحفوظة');
         }
     } catch (error) {
-        logger.warn('فشل تحميل الإعدادات المحفوظة:', error);
+        logger.warn('⚠️ فشل تحميل الإعدادات المحفوظة:', error);
     }
 }
 
@@ -441,6 +514,25 @@ function updateLoadingProgress(percent: number, text: string): void {
     
     if (loadingProgress) loadingProgress.style.width = `${percent}%`;
     if (loadingText) loadingText.textContent = text;
+}
+
+function hideLoadingScreen(): void {
+    const loadingScreen = document.getElementById('loading-screen');
+    const appContainer = document.getElementById('app');
+    
+    if (loadingScreen) {
+        loadingScreen.style.opacity = '0';
+        setTimeout(() => {
+            loadingScreen.style.display = 'none';
+        }, 300);
+    }
+    
+    if (appContainer) {
+        appContainer.style.display = 'flex';
+        setTimeout(() => {
+            appContainer.style.opacity = '1';
+        }, 50);
+    }
 }
 
 function updateStatusBar(message: string): void {
@@ -472,17 +564,11 @@ function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// نقطة البداية
+// بدء التطبيق
 function start(): void {
-    if (!(window as any).OpenCascadeModule) {
-        logger.warn('OpenCASCADE غير محمل بعد، سنحاول مرة أخرى...');
-        window.addEventListener('opencascade-loaded', () => {
-            logger.info('تم تحميل OpenCASCADE، بدء التطبيق...');
-            initializeApp();
-        });
-    } else {
-        initializeApp();
-    }
+    logger.setLevel(LogLevel.INFO);
+    logger.info('🚀 بدء تطبيق TyrexWebCad...');
+    initializeApp();
 }
 
 if (document.readyState === 'loading') {
@@ -491,6 +577,7 @@ if (document.readyState === 'loading') {
     start();
 }
 
+// حفظ الإعدادات عند الخروج
 window.addEventListener('beforeunload', () => {
     try {
         const settings = {
@@ -500,19 +587,19 @@ window.addEventListener('beforeunload', () => {
         };
         localStorage.setItem('tyrexwebcad-settings', JSON.stringify(settings));
     } catch (error) {
-        logger.warn('فشل حفظ الإعدادات:', error);
+        logger.warn('⚠️ فشل حفظ الإعدادات:', error);
     }
 });
 
 // معالجة الأخطاء
 window.addEventListener('error', (event) => {
-    logger.error('خطأ غير معالج:', event.error);
+    logger.error('❌ خطأ غير معالج:', event.error);
 });
 
 window.addEventListener('unhandledrejection', (event) => {
-    logger.error('وعد مرفوض غير معالج:', event.reason);
+    logger.error('❌ وعد مرفوض غير معالج:', event.reason);
 });
 
-// تصدير للتطوير
+// للتطوير
 (window as any).appState = appState;
 (window as any).logger = logger;

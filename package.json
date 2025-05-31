@@ -7,16 +7,16 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "worker:build": "tsc src/workers/opencascade.worker.ts --outDir public/workers"
+    "setup": "npm run setup:opencascade",
+    "setup:opencascade": "mkdir -p public/assets/opencascade && cp node_modules/opencascade.js/dist/* public/assets/opencascade/"
   },
   "dependencies": {
-    "opencascade.js": "^0.1.15",
+    "opencascade.js": "^2.0.0-beta.b5e5073",
     "three": "^0.160.1"
   },
   "devDependencies": {
     "@types/node": "^20.11.5",
     "@types/three": "^0.160.0",
-    "@vite-pwa/assets-generator": "^0.2.4",
     "typescript": "^5.8.3",
     "vite": "^5.4.19"
   }
