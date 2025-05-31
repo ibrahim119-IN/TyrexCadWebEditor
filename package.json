@@ -4,11 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "dev": "npm run setup && vite",
+    "build": "npm run setup && tsc && vite build",
     "preview": "vite preview",
-    "setup": "npm run setup:opencascade",
-    "setup:opencascade": "mkdir -p public/assets/opencascade && cp node_modules/opencascade.js/dist/* public/assets/opencascade/"
+    "setup": "node setup.js",
+    "setup:opencascade": "node setup.js"
   },
   "dependencies": {
     "opencascade.js": "^2.0.0-beta.b5e5073",

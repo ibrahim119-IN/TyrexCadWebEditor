@@ -4,13 +4,17 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
-    host: true
+    host: true,
+    headers: {
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin',
+    }
   },
   optimizeDeps: {
     exclude: ['opencascade.js']
   },
   publicDir: 'public',
-  assetsInclude: ['**/*.wasm'],
+  assetsInclude: ['**/*.wasm', '**/*.wasm.js'],
   build: {
     target: 'es2020',
     outDir: 'dist',
@@ -32,5 +36,8 @@ export default defineConfig({
   },
   define: {
     global: 'globalThis'
+  },
+  worker: {
+    format: 'es'
   }
 })
