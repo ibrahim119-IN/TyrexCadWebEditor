@@ -30,6 +30,23 @@ interface WallIntersection {
     distance: number;
 }
 
+export enum ViewMode {
+    WIREFRAME = 'wireframe',
+    SHADED = 'shaded',
+    RENDERED = 'rendered',
+    XRAY = 'xray'
+}
+
+export enum ViewOrientation {
+    TOP = 'top',
+    BOTTOM = 'bottom',
+    FRONT = 'front',
+    BACK = 'back',
+    LEFT = 'left',
+    RIGHT = 'right',
+    ISOMETRIC = 'isometric'
+}
+
 /**
  * Viewer - المكون الرئيسي لعرض وإدارة المشهد ثلاثي الأبعاد
  * 
@@ -40,6 +57,12 @@ interface WallIntersection {
  * - إدارة الكاميرات والإضاءة والمواد
  */
 export class Viewer {
+    getPerformanceStats() {
+        throw new Error('Method not implemented.');
+    }
+    updateViewSettings(arg0: { showGrid: boolean; showAxes: boolean; }) {
+        throw new Error('Method not implemented.');
+    }
     private container: HTMLElement;
     private renderer!: WebGLRenderer;
     private scene2D!: Scene;
@@ -87,6 +110,7 @@ export class Viewer {
     
     // حالة التهيئة
     private initialized: boolean = false;
+    getCurrentCamera: any;
 
     constructor(container: HTMLElement) {
         this.container = container;
@@ -574,6 +598,58 @@ export class Viewer {
     public setCurrentTool(tool: 'line' | 'wall' | 'door' | 'window'): void {
         this.currentTool = tool;
         this.cancelDrawing();
+    }
+
+    /**
+     * تعيين اتجاه العرض للكاميرا
+     */
+    public setViewOrientation(orientation: ViewOrientation): void {
+        const distance = 50;
+        let position: Vector3;
+        let up = new Vector3(0, 1, 0);
+
+        switch (orientation) {
+            case ViewOrientation.TOP:
+                position = new Vector3(0, distance, 0);
+                up = new Vector3(0, 0, -1);
+                break;
+            case ViewOrientation.BOTTOM:
+                position = new Vector3(0, -distance, 0);
+                up = new Vector3(0, 0, 1);
+                break;
+            case ViewOrientation.FRONT:
+                position = new Vector3(0, 0, distance);
+                break;
+            case ViewOrientation.BACK:
+                position = new Vector3(0, 0, -distance);
+                break;
+            case ViewOrientation.LEFT:
+                position = new Vector3(-distance, 0, 0);
+                break;
+            case ViewOrientation.RIGHT:
+                position = new Vector3(distance, 0, 0);
+                break;
+            case ViewOrientation.ISOMETRIC:
+                position = new Vector3(distance, distance, distance);
+                break;
+        }
+
+        if (this.is2D && this.camera2D) {
+            this.camera2D.position.copy(position);
+            this.camera2D.up.copy(up);
+            this.camera2D.lookAt(0, 0, 0);
+            this.camera2D.updateProjectionMatrix();
+            this.controls2D.update();
+        } else if (!this.is2D && this.camera3D) {
+            this.camera3D.position.copy(position);
+            this.camera3D.up.copy(up);
+            this.camera3D.lookAt(0, 0, 0);
+            this.camera3D.updateProjectionMatrix();
+            this.controls3D.update();
+        }
+
+        this.render();
+        this.emit('viewOrientationChanged', orientation);
     }
 
     public isInitialized(): boolean {

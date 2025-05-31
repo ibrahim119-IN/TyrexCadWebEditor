@@ -25,7 +25,7 @@ export enum CircleDrawMode {
 
 // Circle-specific settings
 export interface CircleToolOptions extends DrawToolOptions {
-    drawMode?: CircleDrawMode;
+    circleDrawMode?: CircleDrawMode;
     showRadius?: boolean;
     showDiameter?: boolean;
     showCenter?: boolean;
@@ -92,7 +92,6 @@ class AddCircleCommand implements Command {
 export class DrawCircleTool extends AbstractDrawTool {
     private circleDrawMode: CircleDrawMode = CircleDrawMode.CENTER_RADIUS;
     private previewCircle: Mesh | null = null;
-    private previewInfo: CirclePreviewInfo = {};
     private currentCircleInfo: CircleInfo | null = null;
     private viewer: any = null;
 
@@ -1099,6 +1098,5 @@ export class DrawCircleTool extends AbstractDrawTool {
             this.previewCircle = null;
         }
         
-        this.previewInfo = {};
     }
 }

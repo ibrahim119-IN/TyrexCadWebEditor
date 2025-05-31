@@ -24,7 +24,7 @@ export enum LineDrawMode {
 
 // إعدادات خاصة بالخطوط
 export interface LineToolOptions extends DrawToolOptions {
-    drawMode?: LineDrawMode;
+    lineDrawMode?: LineDrawMode;
     showLength?: boolean;
     showAngle?: boolean;
     showMidpoint?: boolean;
@@ -446,7 +446,7 @@ export class DrawLineTool extends AbstractDrawTool {
     }
 
     private showHelperLines(): void {
-        if (!this.lineOptions.constructionLines || !this.currentLineInfo) {
+        if (!(this.lineOptions.constructionLines ?? false) || !this.currentLineInfo) {
             return;
         }
         
@@ -653,22 +653,22 @@ export class DrawLineTool extends AbstractDrawTool {
     }
 
     private shouldShowHorizontalHelper(): boolean {
-        return this.lineOptions.constructionLines && 
-               this.currentLineInfo && 
+        return (this.lineOptions.constructionLines === true) && 
+               !!this.currentLineInfo && 
                !this.currentLineInfo.isHorizontal &&
                Math.abs(this.currentLineInfo.angleDegrees) > 5;
     }
 
     private shouldShowVerticalHelper(): boolean {
-        return this.lineOptions.constructionLines && 
-               this.currentLineInfo && 
+        return (this.lineOptions.constructionLines === true) && 
+               !!this.currentLineInfo && 
                !this.currentLineInfo.isVertical &&
                Math.abs(Math.abs(this.currentLineInfo.angleDegrees) - 90) > 5;
     }
 
     private shouldShowAngleHelper(): boolean {
-        return this.lineOptions.showAngle && 
-               this.currentLineInfo && 
+        return (this.lineOptions.showAngle === true) && 
+               !!this.currentLineInfo && 
                this.currentLineInfo.length > 0.5;
     }
 

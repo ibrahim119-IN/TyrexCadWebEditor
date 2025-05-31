@@ -23,7 +23,7 @@ export enum ArcDrawMode {
 
 // Arc-specific options
 export interface ArcToolOptions extends DrawToolOptions {
-    drawMode?: ArcDrawMode;
+    arcDrawMode?: ArcDrawMode;
     showRadius?: boolean;
     showAngle?: boolean;
     showArcLength?: boolean;
@@ -119,6 +119,7 @@ export class DrawArcTool extends AbstractDrawTool {
         this.arcDrawMode = mode;
         this.arcOptions = {
             ...this.options,
+            arcDrawMode: mode,
             showRadius: true,
             showAngle: true,
             showArcLength: true,

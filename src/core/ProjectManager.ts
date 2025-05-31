@@ -12,6 +12,9 @@ export interface ProjectData {
 }
 
 export class ProjectManager {
+    saveProjectAs(projectData: string) {
+        throw new Error('Method not implemented.');
+    }
     private static readonly VERSION = '1.0.0';
     openProject: any;
 

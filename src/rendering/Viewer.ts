@@ -169,8 +169,8 @@ export class Viewer {
     };
     
     // أدوات الرسم والتفاعل
-    private snapSystem: SnapSystem;
-    private measurementSystem: MeasurementSystem;
+    private snapSystem: SnapSystem = new SnapSystem;
+    private measurementSystem!: MeasurementSystem;
     private raycaster: Raycaster = new Raycaster();
     private intersectionPlane: Plane;
     
@@ -187,7 +187,8 @@ export class Viewer {
         spot?: SpotLight;
     } = {};
     
-    private materials: {
+    // سيتم تعيين هذه القيم في ‎initializeDefaultSettings()‎ قبل أي استخدام لاحق
+    private materials!: {
         default: MeshStandardMaterial;
         selected: MeshStandardMaterial;
         highlighted: MeshStandardMaterial;
@@ -196,12 +197,12 @@ export class Viewer {
     };
     
     // إعدادات العرض
-    private viewSettings: ViewSettings;
-    private lightingSettings: LightingSettings;
+    private viewSettings!: ViewSettings;
+    private lightingSettings!: LightingSettings;
     
     // محمل النسيج والموارد
     private textureLoader: TextureLoader = new TextureLoader();
-    private pmremGenerator: PMREMGenerator;
+    private pmremGenerator!: PMREMGenerator;  // will be initialized after the renderer is created
     
     // قياس الأداء
     private clock: Clock = new Clock();
@@ -1255,7 +1256,7 @@ export class Viewer {
         }
     }
 
-    private emit(event: string, data: any): void {
+    private emit(event: string, data?: any): void {
         const listeners = this.eventListeners.get(event);
         if (listeners) {
             listeners.forEach(listener => {

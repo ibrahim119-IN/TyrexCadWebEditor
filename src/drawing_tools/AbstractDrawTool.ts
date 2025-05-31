@@ -667,14 +667,14 @@ export abstract class AbstractDrawTool {
     // ==================== نظام المعاينة المتقدم ====================
     
     protected shouldShowPreview(): boolean {
-        return this.options.previewEnabled && 
+        return (this.options.previewEnabled ?? true) && 
                this.inputPoints.length > 0 && 
                this.currentPoint !== null &&
                this.state === DrawToolState.DRAWING;
     }
 
     protected shouldShowMeasurements(): boolean {
-        return this.options.measurementEnabled && 
+        return (this.options.measurementEnabled ?? true) && 
                this.inputPoints.length > 0 && 
                this.currentPoint !== null;
     }

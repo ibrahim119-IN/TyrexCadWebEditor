@@ -977,8 +977,15 @@ export class GeometryEngine {
         initialized: boolean;
         shapeCount: number;
         nextHandle: number;
-        stats: typeof this.stats;
-        memoryUsage: ReturnType<typeof this.getMemoryUsage>;
+        stats: {
+            operationsCount: number;
+            cacheHits: number;
+            cacheMisses: number;
+            memoryAllocations: number;
+            memoryDeallocations: number;
+            averageOperationTime: number;
+        };
+        memoryUsage: { current: number; max: number; cacheSize: number };
     } {
         return {
             initialized: this.initialized,
