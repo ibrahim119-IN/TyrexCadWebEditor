@@ -1,19 +1,23 @@
 {
-  "name": "Tyrex-Cad-Web-editor",
+  "name": "tyrex-web-cad",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "worker:build": "tsc src/workers/opencascade.worker.ts --outDir public/workers"
+  },
+  "dependencies": {
+    "three": "^0.160.1",
+    "opencascade.js": "^0.1.15"
   },
   "devDependencies": {
     "@types/three": "^0.160.0",
+    "@types/node": "^20.11.5",
     "typescript": "^5.3.3",
-    "vite": "^5.0.10"
-  },
-  "dependencies": {
-    "three": "^0.160.1"
+    "vite": "^5.0.10",
+    "@vite-pwa/assets-generator": "^0.2.4"
   }
 }

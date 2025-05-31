@@ -13,6 +13,7 @@ export interface ProjectData {
 
 export class ProjectManager {
     private static readonly VERSION = '1.0.0';
+    openProject: any;
 
     // حفظ المشروع
     static saveProject(walls: Wall[], elements: BuildingElement[], projectName: string = 'Untitled Project'): string {
