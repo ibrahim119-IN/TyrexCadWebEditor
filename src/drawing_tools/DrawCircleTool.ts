@@ -1,6 +1,6 @@
 /**
- * DrawCircleTool - أداة رسم الدوائر والأقواس المتقدمة
- * أداة متكاملة لرسم دوائر وأقواس مع ميزات متقدمة
+ * DrawCircleTool - Advanced Circle and Arc Drawing Tool
+ * Comprehensive tool for drawing circles and arcs with advanced features
  */
 
 import { Vector3, BufferGeometry, LineBasicMaterial, Line as ThreeLine, RingGeometry, MeshBasicMaterial, Mesh, EllipseCurve, BufferAttribute } from 'three';
@@ -12,18 +12,18 @@ import { MeasurementSystem } from '../systems/MeasurementSystem';
 import { Circle } from '../models/Circle';
 import { GeometricObject } from '../models/GeometricObject';
 
-// أنماط رسم الدوائر
+// Circle drawing modes
 export enum CircleDrawMode {
-    CENTER_RADIUS = 'center-radius',        // مركز + نقطة على المحيط
-    TWO_POINTS = 'two-points',              // نقطتان على القطر
-    THREE_POINTS = 'three-points',          // ثلاث نقاط على المحيط
-    TANGENT_TANGENT_RADIUS = 'tangent-tangent-radius', // مماسان ونصف قطر
-    CONCENTRIC = 'concentric',              // دوائر متحدة المركز
-    ARC_THREE_POINTS = 'arc-three-points',  // قوس بثلاث نقاط
-    ARC_CENTER = 'arc-center'               // قوس من المركز
+    CENTER_RADIUS = 'center-radius',        // Center + point on circumference
+    TWO_POINTS = 'two-points',              // Two points on diameter
+    THREE_POINTS = 'three-points',          // Three points on circumference
+    TANGENT_TANGENT_RADIUS = 'tangent-tangent-radius', // Two tangents and radius
+    CONCENTRIC = 'concentric',              // Concentric circles
+    ARC_THREE_POINTS = 'arc-three-points',  // Arc with three points
+    ARC_CENTER = 'arc-center'               // Arc from center
 }
 
-// إعدادات خاصة بالدوائر
+// Circle-specific settings
 export interface CircleToolOptions extends DrawToolOptions {
     drawMode?: CircleDrawMode;
     showRadius?: boolean;
@@ -39,7 +39,7 @@ export interface CircleToolOptions extends DrawToolOptions {
     concentricStep?: number;
 }
 
-// معلومات الدائرة
+// Circle information
 export interface CircleInfo {
     center: Point3D;
     radius: number;
@@ -47,14 +47,14 @@ export interface CircleInfo {
     circumference: number;
     area: number;
     normal: Point3D;
-    startAngle?: number;    // للأقواس
-    endAngle?: number;      // للأقواس
-    arcLength?: number;     // للأقواس
+    startAngle?: number;    // For arcs
+    endAngle?: number;      // For arcs
+    arcLength?: number;     // For arcs
     isArc: boolean;
-    quadrantPoints?: Point3D[]; // نقاط الأرباع
+    quadrantPoints?: Point3D[]; // Quadrant points
 }
 
-// معلومات المعاينة
+// Preview information
 export interface CirclePreviewInfo {
     geometry?: BufferGeometry;
     centerPoint?: Vector3;
@@ -63,7 +63,7 @@ export interface CirclePreviewInfo {
     dimensionLabels?: any[];
 }
 
-// أمر إضافة دائرة
+// Add circle command
 class AddCircleCommand implements Command {
     private circle: Circle;
     private viewer: any;
@@ -82,12 +82,12 @@ class AddCircleCommand implements Command {
     }
 
     getDescription(): string {
-        return `إضافة دائرة: ${this.circle.id}`;
+        return `Add circle: ${this.circle.id}`;
     }
 }
 
 /**
- * أداة رسم الدوائر المتقدمة
+ * Advanced Circle Drawing Tool
  */
 export class DrawCircleTool extends AbstractDrawTool {
     private circleDrawMode: CircleDrawMode = CircleDrawMode.CENTER_RADIUS;
@@ -96,13 +96,13 @@ export class DrawCircleTool extends AbstractDrawTool {
     private currentCircleInfo: CircleInfo | null = null;
     private viewer: any = null;
 
-    // إعدادات خاصة
+    // Special settings
     private circleOptions: CircleToolOptions;
     
-    // دوائر مرجعية للانجذاب
+    // Reference circles for snapping
     private referenceCircles: Circle[] = [];
     
-    // معلومات الحساب المؤقتة
+    // Temporary calculation cache
     private calculationCache: Map<string, any> = new Map();
 
     constructor(
@@ -115,7 +115,7 @@ export class DrawCircleTool extends AbstractDrawTool {
     ) {
         super(
             'draw-circle',
-            'رسم دائرة',
+            'Draw Circle',
             geometryEngine,
             commandManager,
             snapSystem,
@@ -156,7 +156,7 @@ export class DrawCircleTool extends AbstractDrawTool {
         this.setupCircleSpecificOptions();
     }
 
-    // ==================== الدوال المجردة المطلوبة ====================
+    // ==================== Required Abstract Functions ====================
 
     protected getRequiredPointCount(): number {
         switch (this.circleDrawMode) {
@@ -168,11 +168,11 @@ export class DrawCircleTool extends AbstractDrawTool {
             case CircleDrawMode.ARC_THREE_POINTS:
                 return 3;
             case CircleDrawMode.TANGENT_TANGENT_RADIUS:
-                return 3; // نقطتان للمماسات + نقطة لتحديد نصف القطر
+                return 3; // Two points for tangents + point for radius
             case CircleDrawMode.CONCENTRIC:
-                return 2; // مركز الدائرة المرجعية + نقطة نصف القطر
+                return 2; // Reference circle center + radius point
             case CircleDrawMode.ARC_CENTER:
-                return 3; // مركز + نقطة بداية + نقطة نهاية
+                return 3; // Center + start point + end point
             default:
                 return 2;
         }
@@ -234,7 +234,7 @@ export class DrawCircleTool extends AbstractDrawTool {
                     return this.createCenterRadiusCircle();
             }
         } catch (error) {
-            this.logger.error('فشل إنشاء الدائرة:', error);
+            this.logger.error('Failed to create circle:', error);
             return null;
         }
     }
@@ -258,22 +258,22 @@ export class DrawCircleTool extends AbstractDrawTool {
                 }
             }
         } catch (error) {
-            this.logger.error('فشل تحديث معاينة الدائرة:', error);
+            this.logger.error('Failed to update circle preview:', error);
         }
     }
 
     protected getDisplayName(): string {
         const modeNames = {
-            [CircleDrawMode.CENTER_RADIUS]: 'دائرة (مركز + نصف قطر)',
-            [CircleDrawMode.TWO_POINTS]: 'دائرة (نقطتان)',
-            [CircleDrawMode.THREE_POINTS]: 'دائرة (ثلاث نقاط)',
-            [CircleDrawMode.TANGENT_TANGENT_RADIUS]: 'دائرة (مماسان + نصف قطر)',
-            [CircleDrawMode.CONCENTRIC]: 'دائرة متحدة المركز',
-            [CircleDrawMode.ARC_THREE_POINTS]: 'قوس (ثلاث نقاط)',
-            [CircleDrawMode.ARC_CENTER]: 'قوس (من المركز)'
+            [CircleDrawMode.CENTER_RADIUS]: 'Circle (Center + Radius)',
+            [CircleDrawMode.TWO_POINTS]: 'Circle (Two Points)',
+            [CircleDrawMode.THREE_POINTS]: 'Circle (Three Points)',
+            [CircleDrawMode.TANGENT_TANGENT_RADIUS]: 'Circle (Tangents + Radius)',
+            [CircleDrawMode.CONCENTRIC]: 'Concentric Circle',
+            [CircleDrawMode.ARC_THREE_POINTS]: 'Arc (Three Points)',
+            [CircleDrawMode.ARC_CENTER]: 'Arc (From Center)'
         };
         
-        return modeNames[this.circleDrawMode] || 'رسم دائرة';
+        return modeNames[this.circleDrawMode] || 'Draw Circle';
     }
 
     protected canComplete(): boolean {
@@ -281,7 +281,7 @@ export class DrawCircleTool extends AbstractDrawTool {
             return false;
         }
 
-        // تحقق إضافي من صحة البيانات
+        // Additional validation
         return this.validatePoints() && this.currentCircleInfo !== null;
     }
 
@@ -289,7 +289,7 @@ export class DrawCircleTool extends AbstractDrawTool {
         return new AddCircleCommand(object as Circle, this.viewer);
     }
 
-    // ==================== التحقق من صحة النقاط ====================
+    // ==================== Point Validation ====================
 
     private validateCenterRadius(): boolean {
         if (this.inputPoints.length < 2) return false;
@@ -299,7 +299,7 @@ export class DrawCircleTool extends AbstractDrawTool {
         const radius = center.distanceTo(radiusPoint);
         
         if (radius < this.options.tolerance!) {
-            this.logger.warn('نصف قطر الدائرة صغير جداً');
+            this.logger.warn('Circle radius too small');
             return false;
         }
 
@@ -314,7 +314,7 @@ export class DrawCircleTool extends AbstractDrawTool {
         const diameter = p1.distanceTo(p2);
         
         if (diameter < 2 * this.options.tolerance!) {
-            this.logger.warn('قطر الدائرة صغير جداً');
+            this.logger.warn('Circle diameter too small');
             return false;
         }
 
@@ -326,10 +326,10 @@ export class DrawCircleTool extends AbstractDrawTool {
         
         const [p1, p2, p3] = this.inputPoints.map(ip => ip.position);
         
-        // التحقق من عدم وقوع النقاط على خط واحد
+        // Check if points are collinear
         const area = this.calculateTriangleArea(p1, p2, p3);
         if (Math.abs(area) < this.options.tolerance!) {
-            this.logger.warn('النقاط الثلاث تقع على خط واحد');
+            this.logger.warn('Three points are collinear');
             return false;
         }
 
@@ -337,16 +337,16 @@ export class DrawCircleTool extends AbstractDrawTool {
     }
 
     private validateTangentTangentRadius(): boolean {
-        // TODO: تنفيذ التحقق من المماسات
+        // TODO: Implement tangent validation
         return this.inputPoints.length >= 3;
     }
 
     private validateConcentric(): boolean {
         if (this.inputPoints.length < 2) return false;
         
-        // التحقق من وجود دائرة مرجعية
+        // Check for reference circle
         if (this.referenceCircles.length === 0) {
-            this.logger.warn('لا توجد دائرة مرجعية للدوائر متحدة المركز');
+            this.logger.warn('No reference circle for concentric circles');
             return false;
         }
 
@@ -363,16 +363,16 @@ export class DrawCircleTool extends AbstractDrawTool {
         const radius1 = center.distanceTo(start);
         const radius2 = center.distanceTo(end);
         
-        // التحقق من تساوي المسافات (نصفي القطر)
+        // Check if points are equidistant from center
         if (Math.abs(radius1 - radius2) > this.options.tolerance!) {
-            this.logger.warn('النقاط لا تقع على نفس المسافة من المركز');
+            this.logger.warn('Points are not equidistant from center');
             return false;
         }
 
         return true;
     }
 
-    // ==================== إنشاء أنواع الدوائر ====================
+    // ==================== Circle Creation ====================
 
     private createCenterRadiusCircle(): Circle {
         const center = this.inputPoints[0].position;
@@ -386,7 +386,7 @@ export class DrawCircleTool extends AbstractDrawTool {
         
         this.applyCircleProperties(circle);
         
-        this.logger.info(`تم إنشاء دائرة مركز-نصف قطر: ${circle.id}`);
+        this.logger.info(`Created center-radius circle: ${circle.id}`);
         return circle;
     }
 
@@ -404,7 +404,7 @@ export class DrawCircleTool extends AbstractDrawTool {
         
         this.applyCircleProperties(circle);
         
-        this.logger.info(`تم إنشاء دائرة نقطتين: ${circle.id}`);
+        this.logger.info(`Created two-point circle: ${circle.id}`);
         return circle;
     }
 
@@ -413,7 +413,7 @@ export class DrawCircleTool extends AbstractDrawTool {
         
         const circleInfo = this.calculateCircleFromThreePoints(p1, p2, p3);
         if (!circleInfo) {
-            throw new Error('فشل حساب الدائرة من النقاط الثلاث');
+            throw new Error('Failed to calculate circle from three points');
         }
         
         const circle = new Circle(
@@ -423,12 +423,12 @@ export class DrawCircleTool extends AbstractDrawTool {
         
         this.applyCircleProperties(circle);
         
-        this.logger.info(`تم إنشاء دائرة ثلاث نقاط: ${circle.id}`);
+        this.logger.info(`Created three-point circle: ${circle.id}`);
         return circle;
     }
 
     private createTangentTangentRadiusCircle(): Circle {
-        // TODO: تنفيذ إنشاء دائرة بمماسين ونصف قطر
+        // TODO: Implement tangent circle creation
         return this.createCenterRadiusCircle();
     }
 
@@ -448,15 +448,15 @@ export class DrawCircleTool extends AbstractDrawTool {
         
         this.applyCircleProperties(circle);
         
-        this.logger.info(`تم إنشاء دائرة متحدة المركز: ${circle.id}`);
+        this.logger.info(`Created concentric circle: ${circle.id}`);
         return circle;
     }
 
     private createThreePointsArc(): Circle {
-        // إنشاء قوس من ثلاث نقاط
+        // Create arc from three points
         const arc = this.createThreePointsCircle();
         
-        // حساب زوايا البداية والنهاية
+        // Calculate start and end angles
         const [p1, p2, p3] = this.inputPoints.map(ip => ip.position);
         const center = new Vector3(arc.center.x, arc.center.y, arc.center.z);
         
@@ -468,7 +468,7 @@ export class DrawCircleTool extends AbstractDrawTool {
         arc.setMetadata('endAngle', endAngle);
         arc.setMetadata('middlePoint', { x: p2.x, y: p2.y, z: p2.z });
         
-        this.logger.info(`تم إنشاء قوس ثلاث نقاط: ${arc.id}`);
+        this.logger.info(`Created three-point arc: ${arc.id}`);
         return arc;
     }
 
@@ -493,11 +493,11 @@ export class DrawCircleTool extends AbstractDrawTool {
         
         this.applyCircleProperties(arc);
         
-        this.logger.info(`تم إنشاء قوس من المركز: ${arc.id}`);
+        this.logger.info(`Created center arc: ${arc.id}`);
         return arc;
     }
 
-    // ==================== حساب معلومات الدائرة ====================
+    // ==================== Circle Information Calculation ====================
 
     private calculateCurrentCircleInfo(): void {
         this.currentCircleInfo = null;
@@ -559,7 +559,7 @@ export class DrawCircleTool extends AbstractDrawTool {
                     return;
             }
 
-            // إنشاء معلومات الدائرة
+            // Create circle info
             this.currentCircleInfo = {
                 center: { x: center.x, y: center.y, z: center.z },
                 radius,
@@ -579,12 +579,12 @@ export class DrawCircleTool extends AbstractDrawTool {
             this.emit('circleInfoUpdated', this.currentCircleInfo);
 
         } catch (error) {
-            this.logger.error('فشل حساب معلومات الدائرة:', error);
+            this.logger.error('Failed to calculate circle info:', error);
         }
     }
 
     private calculateCircleFromThreePoints(p1: Vector3, p2: Vector3, p3: Vector3): { center: Vector3; radius: number } | null {
-        // حساب مركز ونصف قطر الدائرة المارة بثلاث نقاط
+        // Calculate center and radius of circle passing through three points
         const ax = p1.x, ay = p1.y;
         const bx = p2.x, by = p2.y;
         const cx = p3.x, cy = p3.y;
@@ -592,7 +592,7 @@ export class DrawCircleTool extends AbstractDrawTool {
         const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
         
         if (Math.abs(d) < this.options.tolerance!) {
-            return null; // النقاط متخطة
+            return null; // Points are collinear
         }
 
         const ux = ((ax * ax + ay * ay) * (by - cy) + 
@@ -631,7 +631,7 @@ export class DrawCircleTool extends AbstractDrawTool {
         ];
     }
 
-    // ==================== المعاينة والعرض ====================
+    // ==================== Preview and Display ====================
 
     private createCirclePreview(): void {
         if (!this.currentCircleInfo) return;
@@ -646,10 +646,10 @@ export class DrawCircleTool extends AbstractDrawTool {
     }
 
     private createFullCirclePreview(center: Point3D, radius: number): void {
-        // إنشاء هندسة الدائرة
+        // Create circle geometry
         const geometry = new RingGeometry(radius * 0.98, radius * 1.02, 64);
         
-        // إنشاء مادة المعاينة
+        // Create preview material
         const material = new MeshBasicMaterial({
             color: this.circleOptions.previewColor || '#2196F3',
             opacity: this.circleOptions.previewOpacity || 0.3,
@@ -663,12 +663,12 @@ export class DrawCircleTool extends AbstractDrawTool {
         this.previewObjects.push(this.previewCircle);
         this.emit('previewObjectCreated', this.previewCircle);
         
-        // إنشاء خط المحيط
+        // Create circle outline
         this.createCircleOutline(center, radius);
     }
 
     private createArcPreview(center: Point3D, radius: number, startAngle: number, endAngle: number): void {
-        // إنشاء هندسة القوس
+        // Create arc geometry
         const curve = new EllipseCurve(
             center.x, center.y,
             radius, radius,
@@ -691,7 +691,7 @@ export class DrawCircleTool extends AbstractDrawTool {
         this.previewObjects.push(arcLine);
         this.emit('previewObjectCreated', arcLine);
         
-        // إضافة خطوط نصف القطر للقوس
+        // Add radius lines for arc
         this.createRadiusLines(center, radius, startAngle, endAngle);
     }
 
@@ -721,21 +721,21 @@ export class DrawCircleTool extends AbstractDrawTool {
     private createRadiusLines(center: Point3D, radius: number, startAngle: number, endAngle: number): void {
         const centerVec = new Vector3(center.x, center.y, center.z);
         
-        // خط نصف قطر البداية
+        // Start radius line
         const startPoint = new Vector3(
             center.x + Math.cos(startAngle) * radius,
             center.y + Math.sin(startAngle) * radius,
             center.z
         );
         
-        // خط نصف قطر النهاية
+        // End radius line
         const endPoint = new Vector3(
             center.x + Math.cos(endAngle) * radius,
             center.y + Math.sin(endAngle) * radius,
             center.z
         );
         
-        // إنشاء الخطوط
+        // Create lines
         [startPoint, endPoint].forEach(point => {
             const geometry = new BufferGeometry().setFromPoints([centerVec, point]);
             const material = new LineBasicMaterial({
@@ -755,17 +755,17 @@ export class DrawCircleTool extends AbstractDrawTool {
         
         const { center, radius } = this.currentCircleInfo;
         
-        // إظهار نقطة المركز
+        // Show center point
         if (this.circleOptions.showCenter) {
             this.createCenterPoint(center);
         }
         
-        // إظهار خطوط الأرباع
+        // Show quadrant lines
         if (this.circleOptions.showQuadrants) {
             this.createQuadrantLines(center, radius);
         }
         
-        // إظهار خط نصف القطر
+        // Show radius line
         if (this.circleOptions.showRadius && this.inputPoints.length > 0) {
             this.createRadiusLine(center, this.currentPoint!);
         }
@@ -782,7 +782,7 @@ export class DrawCircleTool extends AbstractDrawTool {
             transparent: true
         });
         
-        // إنشاء صليب صغير للمركز
+        // Create small cross for center
         const size = this.currentCircleInfo!.radius * 0.05;
         const crossPoints = [
             new Vector3(center.x - size, center.y, center.z),
@@ -843,7 +843,7 @@ export class DrawCircleTool extends AbstractDrawTool {
         
         const { center, radius, diameter, circumference, area, arcLength, isArc } = this.currentCircleInfo;
         
-        // عرض نصف القطر
+        // Show radius
         if (this.circleOptions.showRadius) {
             this.emit('measurementUpdate', {
                 type: 'radius',
@@ -852,7 +852,7 @@ export class DrawCircleTool extends AbstractDrawTool {
             });
         }
         
-        // عرض القطر
+        // Show diameter
         if (this.circleOptions.showDiameter) {
             this.emit('measurementUpdate', {
                 type: 'diameter',
@@ -861,10 +861,10 @@ export class DrawCircleTool extends AbstractDrawTool {
             });
         }
         
-        // عرض المحيط أو طول القوس
+        // Show circumference or arc length
         if (this.circleOptions.showCircumference) {
             const length = isArc && arcLength ? arcLength : circumference;
-            const label = isArc ? 'طول القوس' : 'المحيط';
+            const label = isArc ? 'Arc Length' : 'Circumference';
             
             this.emit('measurementUpdate', {
                 type: 'circumference',
@@ -873,7 +873,7 @@ export class DrawCircleTool extends AbstractDrawTool {
             });
         }
         
-        // عرض المساحة
+        // Show area
         if (this.circleOptions.showArea && !isArc) {
             this.emit('measurementUpdate', {
                 type: 'area',
@@ -883,22 +883,22 @@ export class DrawCircleTool extends AbstractDrawTool {
         }
     }
 
-    // ==================== معالجة الانجذاب المتقدم ====================
+    // ==================== Advanced Snapping ====================
 
     public onMouseMove(point: Vector3, existingObjects: any[] = []): void {
         let enhancedPoint = point.clone();
         
-        // انجذاب نصف القطر
+        // Radius snapping
         if (this.inputPoints.length > 0 && this.circleOptions.radiusIncrement) {
             enhancedPoint = this.applyRadiusSnap(enhancedPoint);
         }
         
-        // انجذاب زاوي للأقواس
+        // Angle snapping for arcs
         if (this.isArcMode() && this.inputPoints.length > 1 && this.circleOptions.angleIncrement) {
             enhancedPoint = this.applyAngleSnap(enhancedPoint);
         }
         
-        // انجذاب للدوائر الموجودة
+        // Circle snapping
         enhancedPoint = this.applyCircleSnap(enhancedPoint, existingObjects);
         
         super.onMouseMove(enhancedPoint, existingObjects);
@@ -913,7 +913,7 @@ export class DrawCircleTool extends AbstractDrawTool {
         
         if (radius < 0.001) return point;
         
-        // انجذاب نصف القطر
+        // Radius snapping
         const increment = this.circleOptions.radiusIncrement || 0.5;
         const snappedRadius = Math.round(radius / increment) * increment;
         
@@ -928,7 +928,7 @@ export class DrawCircleTool extends AbstractDrawTool {
         const angle = Math.atan2(direction.y, direction.x);
         const radius = direction.length();
         
-        // انجذاب الزاوية
+        // Angle snapping
         const increment = (this.circleOptions.angleIncrement || 15) * (Math.PI / 180);
         const snappedAngle = Math.round(angle / increment) * increment;
         
@@ -940,12 +940,12 @@ export class DrawCircleTool extends AbstractDrawTool {
     }
 
     private applyCircleSnap(point: Vector3, existingObjects: any[]): Vector3 {
-        // انجذاب لمراكز ومحيطات الدوائر الموجودة
-        // TODO: تنفيذ انجذاب متقدم للدوائر
+        // Snap to centers and circumferences of existing circles
+        // TODO: Implement advanced circle snapping
         return point;
     }
 
-    // ==================== دوال مساعدة ====================
+    // ==================== Helper Functions ====================
 
     private setupCircleSpecificOptions(): void {
         if (this.isArcMode()) {
@@ -959,7 +959,7 @@ export class DrawCircleTool extends AbstractDrawTool {
     }
 
     private applyCircleProperties(circle: Circle): void {
-        // تطبيق خصائص خاصة
+        // Apply special properties
         if (this.circleOptions.createAsArc || this.isArcMode()) {
             circle.setMetadata('isArc', true);
         }
@@ -973,35 +973,35 @@ export class DrawCircleTool extends AbstractDrawTool {
     }
 
     private formatLength(length: number): string {
-        if (length < 0.01) return '0.00م';
+        if (length < 0.01) return '0.00m';
         
         if (length < 1) {
-            return `${(length * 100).toFixed(0)}سم`;
+            return `${(length * 100).toFixed(0)}cm`;
         } else if (length < 1000) {
-            return `${length.toFixed(2)}م`;
+            return `${length.toFixed(2)}m`;
         } else {
-            return `${(length / 1000).toFixed(3)}كم`;
+            return `${(length / 1000).toFixed(3)}km`;
         }
     }
 
     private formatArea(area: number): string {
         if (area < 1) {
-            return `${(area * 10000).toFixed(0)}سم²`;
+            return `${(area * 10000).toFixed(0)}cm²`;
         } else if (area < 10000) {
-            return `${area.toFixed(2)}م²`;
+            return `${area.toFixed(2)}m²`;
         } else {
-            return `${(area / 10000).toFixed(3)}هكتار`;
+            return `${(area / 10000).toFixed(3)}hectares`;
         }
     }
 
-    // ==================== واجهة عامة ====================
+    // ==================== Public Interface ====================
 
     /**
-     * تغيير نمط رسم الدائرة
+     * Change circle drawing mode
      */
     public setCircleDrawMode(mode: CircleDrawMode): void {
         if (this.state === 'drawing') {
-            this.logger.warn('لا يمكن تغيير نمط الرسم أثناء الرسم');
+            this.logger.warn('Cannot change drawing mode while drawing');
             return;
         }
         
@@ -1010,39 +1010,39 @@ export class DrawCircleTool extends AbstractDrawTool {
         this.resetTool();
         
         this.emit('drawModeChanged', { mode, toolId: this.toolId });
-        this.logger.info(`تم تغيير نمط رسم الدائرة إلى: ${mode}`);
+        this.logger.info(`Changed circle drawing mode to: ${mode}`);
     }
 
     /**
-     * الحصول على نمط الرسم الحالي
+     * Get current drawing mode
      */
     public getCircleDrawMode(): CircleDrawMode {
         return this.circleDrawMode;
     }
 
     /**
-     * الحصول على معلومات الدائرة الحالية
+     * Get current circle info
      */
     public getCurrentCircleInfo(): CircleInfo | null {
         return this.currentCircleInfo ? { ...this.currentCircleInfo } : null;
     }
 
     /**
-     * تعيين الدوائر المرجعية للانجذاب
+     * Set reference circles for snapping
      */
     public setReferenceCircles(circles: Circle[]): void {
         this.referenceCircles = [...circles];
     }
 
     /**
-     * ربط العارض
+     * Set viewer reference
      */
     public setViewer(viewer: any): void {
         this.viewer = viewer;
     }
 
     /**
-     * الحصول على إحصائيات مفصلة
+     * Get detailed statistics
      */
     public getDetailedStats(): any {
         const baseStats = this.getStats();
@@ -1058,28 +1058,28 @@ export class DrawCircleTool extends AbstractDrawTool {
     }
 
     private calculateAverageRadius(): number {
-        // TODO: حساب متوسط نصف القطر
+        // TODO: Calculate average radius
         return 0;
     }
 
     private countArcs(): number {
-        // TODO: عد الأقواس المرسومة
+        // TODO: Count drawn arcs
         return 0;
     }
 
     private countConcentricCircles(): number {
-        // TODO: عد الدوائر متحدة المركز
+        // TODO: Count concentric circles
         return 0;
     }
 
     /**
-     * تنظيف محسن
+     * Enhanced cleanup
      */
     public dispose(): void {
         this.clearPreview();
         this.calculationCache.clear();
         
-        // تنظيف المراجع
+        // Clear references
         this.previewCircle = null;
         this.currentCircleInfo = null;
         this.viewer = null;
@@ -1089,7 +1089,7 @@ export class DrawCircleTool extends AbstractDrawTool {
     }
 
     /**
-     * مسح المعاينة محسن
+     * Enhanced preview clearing
      */
     protected clearPreview(): void {
         super.clearPreview();
