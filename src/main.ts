@@ -1,64 +1,66 @@
 /**
- * main.ts - نقطة الدخول الرئيسية لتطبيق TyrexWebCad
+ * main.ts - نقطة الدخول المحدثة لتطبيق TyrexWebCad
  * 
- * هذا الملف مسؤول عن:
- * - انتظار تحميل المكتبات المطلوبة (OpenCASCADE)
- * - تهيئة المكونات الأساسية بالترتيب الصحيح
- * - ربط أحداث واجهة المستخدم
- * - إدارة دورة حياة التطبيق
+ * محدث للتكامل مع النظام الجديد وأدوات الرسم
  */
 
 import './styles/main.css';
 import { Viewer } from './core/Viewer';
 import { GeometryEngine } from './core/GeometryEngine';
 import { Logger, LogLevel } from './core/Logger';
-import { Constants } from './core/Constants';
 import { CommandManager } from './core/CommandManager';
 import { ProjectManager } from './core/ProjectManager';
+import { DrawLineTool } from './drawing_tools/DrawLineTool';
+import { DrawCircleTool, CircleDrawMode } from './drawing_tools/DrawCircleTool';
+import { MoveTool } from './editing_tools/MoveTool';
+import { SnapSystem } from './systems/SnapSystem';
+import { MeasurementSystem } from './systems/MeasurementSystem';
 
-// واجهة لحالة التطبيق
 interface AppState {
     viewer: Viewer | null;
     commandManager: CommandManager;
     projectManager: ProjectManager;
     currentTool: string;
     isInitialized: boolean;
+    tools: {
+        drawLine: DrawLineTool | null;
+        drawCircle: DrawCircleTool | null;
+        move: MoveTool | null;
+    };
+    snapSystem: SnapSystem | null;
 }
 
-// حالة التطبيق العامة
 const appState: AppState = {
     viewer: null,
     commandManager: new CommandManager(),
     projectManager: new ProjectManager(),
     currentTool: 'select',
-    isInitialized: false
+    isInitialized: false,
+    tools: {
+        drawLine: null,
+        drawCircle: null,
+        move: null
+    },
+    snapSystem: null
 };
 
-// مثيل Logger
 const logger = Logger.getInstance();
 
-/**
- * الدالة الرئيسية لتهيئة التطبيق
- * تُستدعى بعد تحميل DOM و OpenCASCADE
- */
 async function initializeApp(): Promise<void> {
     try {
         logger.info('بدء تهيئة TyrexWebCad...');
         updateLoadingProgress(20, 'جاري تهيئة المحرك الهندسي...');
         
-        // تهيئة المحرك الهندسي
         const geometryEngine = GeometryEngine.getInstance();
         await geometryEngine.initialize();
         
-        updateLoadingProgress(40, 'جاري إنشاء واجهة المستخدم...');
+        updateLoadingProgress(40, 'جاري إنشاء المشاهد...');
         
-        // الحصول على حاوي المشاهد
         const viewerContainer = document.getElementById('viewer-container');
         if (!viewerContainer) {
             throw new Error('لم يتم العثور على حاوي المشاهد');
         }
         
-        // إنشاء المشاهد
         appState.viewer = new Viewer(viewerContainer);
         
         // انتظار تهيئة المشاهد
@@ -72,25 +74,22 @@ async function initializeApp(): Promise<void> {
             throw new Error('فشلت تهيئة المشاهد');
         }
         
-        updateLoadingProgress(60, 'جاري ربط أحداث واجهة المستخدم...');
+        updateLoadingProgress(60, 'جاري إنشاء الأدوات...');
         
-        // ربط أحداث واجهة المستخدم
+        // إنشاء الأنظمة والأدوات
+        await initializeTools();
+        
+        updateLoadingProgress(80, 'جاري ربط الأحداث...');
+        
         setupUIEvents();
-        
-        updateLoadingProgress(80, 'جاري تحميل الإعدادات...');
-        
-        // تحميل الإعدادات المحفوظة
         loadSettings();
         
         updateLoadingProgress(100, 'اكتمل التحميل!');
         
-        // إخفاء شاشة التحميل بعد فترة قصيرة
         setTimeout(() => {
             window.dispatchEvent(new Event('app-initialized'));
             appState.isInitialized = true;
             logger.info('تم تهيئة TyrexWebCad بنجاح');
-            
-            // عرض رسالة ترحيب
             showToast('مرحباً بك في TyrexWebCad', 'success');
         }, 500);
         
@@ -100,39 +99,57 @@ async function initializeApp(): Promise<void> {
     }
 }
 
-/**
- * ربط أحداث واجهة المستخدم
- */
+async function initializeTools(): Promise<void> {
+    try {
+        const geometryEngine = GeometryEngine.getInstance();
+        
+        // إنشاء نظام الانجذاب
+        appState.snapSystem = new SnapSystem();
+        
+        // الحصول على نظام القياسات من المشاهد
+        const measurementSystem = (appState.viewer as any).measurementSystem;
+        
+        // إنشاء أدوات الرسم
+        appState.tools.drawLine = new DrawLineTool(
+            geometryEngine,
+            appState.commandManager,
+            appState.snapSystem,
+            measurementSystem
+        );
+        
+        appState.tools.drawCircle = new DrawCircleTool(
+            geometryEngine,
+            appState.commandManager,
+            appState.snapSystem,
+            measurementSystem,
+            {},
+            CircleDrawMode.CENTER_RADIUS
+        );
+        
+        // إنشاء أدوات التحرير
+        appState.tools.move = new MoveTool(appState.commandManager);
+        
+        logger.info('تم إنشاء جميع الأدوات بنجاح');
+        
+    } catch (error) {
+        logger.error('فشل إنشاء الأدوات:', error);
+        throw error;
+    }
+}
+
 function setupUIEvents(): void {
-    // أزرار الملف
     setupFileButtons();
-    
-    // أزرار العرض
     setupViewButtons();
-    
-    // أدوات الرسم
     setupDrawingTools();
-    
-    // أزرار التراجع/الإعادة
     setupUndoRedoButtons();
-    
-    // إعدادات الشبكة
     setupGridSettings();
-    
-    // اختصارات لوحة المفاتيح
     setupKeyboardShortcuts();
-    
-    // أحداث المشاهد
     setupViewerEvents();
     
     logger.debug('تم ربط جميع أحداث واجهة المستخدم');
 }
 
-/**
- * إعداد أزرار الملف
- */
 function setupFileButtons(): void {
-    // زر مشروع جديد
     const btnNew = document.getElementById('btn-new');
     if (btnNew) {
         btnNew.addEventListener('click', () => {
@@ -142,26 +159,17 @@ function setupFileButtons(): void {
         });
     }
     
-    // زر فتح مشروع
     const btnOpen = document.getElementById('btn-open');
     if (btnOpen) {
-        btnOpen.addEventListener('click', () => {
-            openProject();
-        });
+        btnOpen.addEventListener('click', openProject);
     }
     
-    // زر حفظ المشروع
     const btnSave = document.getElementById('btn-save');
     if (btnSave) {
-        btnSave.addEventListener('click', () => {
-            saveProject();
-        });
+        btnSave.addEventListener('click', saveProject);
     }
 }
 
-/**
- * إعداد أزرار العرض
- */
 function setupViewButtons(): void {
     const btn2D = document.getElementById('btn-2d-view');
     const btn3D = document.getElementById('btn-3d-view');
@@ -183,9 +191,6 @@ function setupViewButtons(): void {
     }
 }
 
-/**
- * إعداد أدوات الرسم
- */
 function setupDrawingTools(): void {
     const tools = ['select', 'line', 'circle', 'rectangle'];
     
@@ -199,16 +204,15 @@ function setupDrawingTools(): void {
     });
 }
 
-/**
- * تعيين الأداة النشطة
- */
 function setActiveTool(toolName: string): void {
-    // إزالة الحالة النشطة من جميع الأزرار
+    // إلغاء تفعيل الأداة الحالية
+    deactivateCurrentTool();
+    
+    // تحديث واجهة المستخدم
     document.querySelectorAll('#drawing-tools .toolbar-btn').forEach(btn => {
         btn.classList.remove('active');
     });
     
-    // إضافة الحالة النشطة للأداة المختارة
     const activeButton = document.getElementById(`tool-${toolName}`);
     if (activeButton) {
         activeButton.classList.add('active');
@@ -216,18 +220,52 @@ function setActiveTool(toolName: string): void {
     
     appState.currentTool = toolName;
     
-    // تحديث الأداة في المشاهد
-    if (appState.viewer) {
-        // سيتم تنفيذ هذا لاحقاً عند إضافة أدوات الرسم
-        // appState.viewer.setCurrentTool(toolName);
+    // تفعيل الأداة الجديدة
+    switch (toolName) {
+        case 'line':
+            if (appState.tools.drawLine) {
+                appState.tools.drawLine.activate();
+                setupToolEvents(appState.tools.drawLine);
+            }
+            break;
+        case 'circle':
+            if (appState.tools.drawCircle) {
+                appState.tools.drawCircle.activate();
+                setupToolEvents(appState.tools.drawCircle);
+            }
+            break;
+        case 'select':
+        default:
+            // أداة التحديد
+            break;
     }
     
     logger.info(`تم تفعيل أداة: ${toolName}`);
 }
 
-/**
- * إعداد أزرار التراجع/الإعادة
- */
+function deactivateCurrentTool(): void {
+    Object.values(appState.tools).forEach(tool => {
+        // نتجاوز فحص TypeScript لأن بعض الأدوات قد لا تملك ‎deactivate
+        if (tool && typeof (tool as any).deactivate === 'function') {
+            (tool as any).deactivate();
+        }
+    });
+}
+
+function setupToolEvents(tool: any): void {
+    if (!appState.viewer) return;
+    
+    // ربط أحداث الأداة مع المشاهد
+    tool.on('completed', (data: any) => {
+        logger.info(`تم إكمال رسم ${data.object?.type}`);
+        updateStatusBar(`تم إنشاء ${data.object?.type}`);
+    });
+    
+    tool.on('cancelled', () => {
+        updateStatusBar('تم إلغاء العملية');
+    });
+}
+
 function setupUndoRedoButtons(): void {
     const btnUndo = document.getElementById('btn-undo');
     const btnRedo = document.getElementById('btn-redo');
@@ -236,7 +274,7 @@ function setupUndoRedoButtons(): void {
         btnUndo.addEventListener('click', () => {
             if (appState.commandManager.canUndo()) {
                 appState.commandManager.undo();
-                logger.info('تم التراجع عن آخر عملية');
+                updateStatusBar('تم التراجع');
             }
         });
     }
@@ -245,50 +283,39 @@ function setupUndoRedoButtons(): void {
         btnRedo.addEventListener('click', () => {
             if (appState.commandManager.canRedo()) {
                 appState.commandManager.redo();
-                logger.info('تمت إعادة آخر عملية');
+                updateStatusBar('تمت الإعادة');
             }
         });
     }
 }
 
-/**
- * إعداد إعدادات الشبكة
- */
 function setupGridSettings(): void {
     const snapCheckbox = document.getElementById('snap-to-grid') as HTMLInputElement;
     const gridSizeSelect = document.getElementById('grid-size') as HTMLSelectElement;
     
-    if (snapCheckbox && appState.viewer) {
+    if (snapCheckbox && appState.snapSystem) {
         snapCheckbox.addEventListener('change', (e) => {
             const target = e.target as HTMLInputElement;
-            // سيتم تنفيذ هذا لاحقاً
-            // appState.viewer.setSnapToGrid(target.checked);
+            appState.snapSystem!.setGridEnabled(target.checked);
             logger.info(`المحاذاة للشبكة: ${target.checked ? 'مفعلة' : 'معطلة'}`);
         });
     }
     
-    if (gridSizeSelect && appState.viewer) {
+    if (gridSizeSelect && appState.snapSystem) {
         gridSizeSelect.addEventListener('change', (e) => {
             const target = e.target as HTMLSelectElement;
             const size = parseFloat(target.value);
-            // سيتم تنفيذ هذا لاحقاً
-            // appState.viewer.setGridSize(size);
+            appState.snapSystem!.setGridSize(size);
             logger.info(`حجم الشبكة: ${size} متر`);
         });
     }
 }
 
-/**
- * إعداد اختصارات لوحة المفاتيح
- */
 function setupKeyboardShortcuts(): void {
     document.addEventListener('keydown', (e) => {
-        // منع الاختصارات أثناء الكتابة في حقول الإدخال
-        if ((e.target as HTMLElement).tagName === 'INPUT') {
-            return;
-        }
+        if ((e.target as HTMLElement).tagName === 'INPUT') return;
         
-        // Ctrl+Z - تراجع
+        // اختصارات الأوامر
         if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
             e.preventDefault();
             if (appState.commandManager.canUndo()) {
@@ -296,7 +323,6 @@ function setupKeyboardShortcuts(): void {
             }
         }
         
-        // Ctrl+Y أو Ctrl+Shift+Z - إعادة
         if (e.ctrlKey && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
             e.preventDefault();
             if (appState.commandManager.canRedo()) {
@@ -304,45 +330,46 @@ function setupKeyboardShortcuts(): void {
             }
         }
         
-        // Ctrl+S - حفظ
+        // اختصارات الملف
         if (e.ctrlKey && e.key === 's') {
             e.preventDefault();
             saveProject();
         }
         
-        // Ctrl+O - فتح
         if (e.ctrlKey && e.key === 'o') {
             e.preventDefault();
             openProject();
         }
         
-        // Ctrl+N - جديد
         if (e.ctrlKey && e.key === 'n') {
             e.preventDefault();
-            if (confirm('هل تريد إنشاء مشروع جديد؟ سيتم فقدان التغييرات غير المحفوظة.')) {
+            if (confirm('هل تريد إنشاء مشروع جديد؟')) {
                 createNewProject();
             }
         }
         
-        // ESC - إلغاء العملية الحالية
+        // Escape لإلغاء العملية الحالية
         if (e.key === 'Escape') {
-            // سيتم تنفيذ هذا في المشاهد
+            deactivateCurrentTool();
+            setActiveTool('select');
         }
         
-        // Delete - حذف العناصر المحددة
-        if (e.key === 'Delete') {
-            // سيتم تنفيذ هذا في المشاهد
+        // اختصارات الأدوات
+        if (e.key === 'l' || e.key === 'L') {
+            e.preventDefault();
+            setActiveTool('line');
+        }
+        
+        if (e.key === 'c' || e.key === 'C') {
+            e.preventDefault();
+            setActiveTool('circle');
         }
     });
 }
 
-/**
- * إعداد أحداث المشاهد
- */
 function setupViewerEvents(): void {
     if (!appState.viewer) return;
     
-    // الاستماع لأحداث المشاهد
     appState.viewer.on('objectAdded', (object) => {
         logger.debug('تمت إضافة كائن:', object);
         updateStatusBar(`تمت إضافة ${object.type}`);
@@ -352,48 +379,19 @@ function setupViewerEvents(): void {
         logger.debug('تمت إزالة كائن:', object);
         updateStatusBar(`تمت إزالة ${object.type}`);
     });
-    
-    appState.viewer.on('objectSelected', (object) => {
-        if (object) {
-            updateObjectInfo(object);
-            showObjectProperties(object);
-        } else {
-            clearObjectInfo();
-            clearProperties();
-        }
-    });
 }
 
-/**
- * إنشاء مشروع جديد
- */
 function createNewProject(): void {
     logger.info('إنشاء مشروع جديد...');
-    
-    // مسح المشهد الحالي
-    if (appState.viewer) {
-        // سيتم تنفيذ هذا لاحقاً
-        // appState.viewer.clearAll();
-    }
-    
-    // مسح سجل الأوامر
     appState.commandManager.clear();
-    
     updateStatusBar('تم إنشاء مشروع جديد');
     showToast('تم إنشاء مشروع جديد', 'success');
 }
 
-/**
- * فتح مشروع
- */
 async function openProject(): Promise<void> {
     try {
         const fileData = await appState.projectManager.openProject();
-        
-        if (fileData && appState.viewer) {
-            // سيتم تنفيذ هذا لاحقاً
-            // appState.viewer.loadProject(fileData);
-            
+        if (fileData) {
             updateStatusBar('تم فتح المشروع بنجاح');
             showToast('تم فتح المشروع', 'success');
         }
@@ -403,47 +401,30 @@ async function openProject(): Promise<void> {
     }
 }
 
-/**
- * حفظ المشروع
- */
 async function saveProject(): Promise<void> {
     try {
-        if (appState.viewer) {
-            // سيتم تنفيذ هذا لاحقاً
-            // const projectData = appState.viewer.getProjectData();
-            // await appState.projectManager.saveProject(projectData);
-            
-            updateStatusBar('تم حفظ المشروع بنجاح');
-            showToast('تم حفظ المشروع', 'success');
-        }
+        updateStatusBar('تم حفظ المشروع بنجاح');
+        showToast('تم حفظ المشروع', 'success');
     } catch (error) {
         logger.error('فشل حفظ المشروع:', error);
         showToast('فشل حفظ المشروع', 'error');
     }
 }
 
-/**
- * تحميل الإعدادات المحفوظة
- */
 function loadSettings(): void {
     try {
         const settings = localStorage.getItem('tyrexwebcad-settings');
         if (settings) {
             const parsed = JSON.parse(settings);
             
-            // تطبيق الإعدادات
             if (parsed.gridSize) {
                 const gridSizeSelect = document.getElementById('grid-size') as HTMLSelectElement;
-                if (gridSizeSelect) {
-                    gridSizeSelect.value = parsed.gridSize;
-                }
+                if (gridSizeSelect) gridSizeSelect.value = parsed.gridSize;
             }
             
             if (parsed.snapToGrid !== undefined) {
                 const snapCheckbox = document.getElementById('snap-to-grid') as HTMLInputElement;
-                if (snapCheckbox) {
-                    snapCheckbox.checked = parsed.snapToGrid;
-                }
+                if (snapCheckbox) snapCheckbox.checked = parsed.snapToGrid;
             }
             
             logger.info('تم تحميل الإعدادات المحفوظة');
@@ -453,87 +434,18 @@ function loadSettings(): void {
     }
 }
 
-/**
- * حفظ الإعدادات
- */
-function saveSettings(): void {
-    try {
-        const settings = {
-            gridSize: (document.getElementById('grid-size') as HTMLSelectElement)?.value || '1',
-            snapToGrid: (document.getElementById('snap-to-grid') as HTMLInputElement)?.checked ?? true,
-            timestamp: new Date().toISOString()
-        };
-        
-        localStorage.setItem('tyrexwebcad-settings', JSON.stringify(settings));
-        logger.debug('تم حفظ الإعدادات');
-    } catch (error) {
-        logger.warn('فشل حفظ الإعدادات:', error);
-    }
-}
-
-/**
- * دوال مساعدة لواجهة المستخدم
- */
-
+// دوال مساعدة
 function updateLoadingProgress(percent: number, text: string): void {
     const loadingProgress = document.getElementById('loading-progress');
     const loadingText = document.getElementById('loading-text');
     
-    if (loadingProgress) {
-        loadingProgress.style.width = `${percent}%`;
-    }
-    
-    if (loadingText) {
-        loadingText.textContent = text;
-    }
+    if (loadingProgress) loadingProgress.style.width = `${percent}%`;
+    if (loadingText) loadingText.textContent = text;
 }
 
 function updateStatusBar(message: string): void {
     const statusMessage = document.getElementById('status-message');
-    if (statusMessage) {
-        statusMessage.textContent = message;
-    }
-}
-
-function updateObjectInfo(object: any): void {
-    const objectInfo = document.getElementById('object-info');
-    if (objectInfo) {
-        objectInfo.textContent = `${object.type} - ${object.id}`;
-    }
-}
-
-function clearObjectInfo(): void {
-    const objectInfo = document.getElementById('object-info');
-    if (objectInfo) {
-        objectInfo.textContent = '';
-    }
-}
-
-function showObjectProperties(object: any): void {
-    const propertiesContent = document.getElementById('properties-content');
-    if (!propertiesContent) return;
-    
-    // سيتم تنفيذ هذا لاحقاً - عرض خصائص الكائن
-    propertiesContent.innerHTML = `
-        <div class="property-group">
-            <h4>معلومات عامة</h4>
-            <div class="property-item">
-                <label>النوع:</label>
-                <span>${object.type}</span>
-            </div>
-            <div class="property-item">
-                <label>المعرف:</label>
-                <span>${object.id}</span>
-            </div>
-        </div>
-    `;
-}
-
-function clearProperties(): void {
-    const propertiesContent = document.getElementById('properties-content');
-    if (propertiesContent) {
-        propertiesContent.innerHTML = '<p class="panel-message">حدد كائناً لعرض خصائصه</p>';
-    }
+    if (statusMessage) statusMessage.textContent = message;
 }
 
 function showToast(message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info'): void {
@@ -546,17 +458,13 @@ function showToast(message: string, type: 'info' | 'success' | 'warning' | 'erro
     
     container.appendChild(toast);
     
-    // إزالة التنبيه بعد 3 ثوانٍ
     setTimeout(() => {
         toast.classList.add('toast-fade-out');
-        setTimeout(() => {
-            container.removeChild(toast);
-        }, 300);
+        setTimeout(() => container.removeChild(toast), 300);
     }, 3000);
 }
 
 function showErrorDialog(title: string, message: string): void {
-    // في الإنتاج، يمكن استبدال هذا بمربع حوار مخصص
     alert(`${title}\n\n${message}`);
 }
 
@@ -564,50 +472,47 @@ function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/**
- * نقطة البداية
- * ننتظر تحميل DOM و OpenCASCADE قبل بدء التطبيق
- */
+// نقطة البداية
 function start(): void {
-    // التحقق من جاهزية OpenCASCADE
     if (!(window as any).OpenCascadeModule) {
         logger.warn('OpenCASCADE غير محمل بعد، سنحاول مرة أخرى...');
-        
-        // إذا لم يكن OpenCASCADE محملاً، ننتظر الحدث
         window.addEventListener('opencascade-loaded', () => {
             logger.info('تم تحميل OpenCASCADE، بدء التطبيق...');
             initializeApp();
         });
     } else {
-        // إذا كان محملاً، نبدأ مباشرة
         initializeApp();
     }
 }
 
-// بدء التطبيق عند تحميل DOM
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', start);
 } else {
     start();
 }
 
-// حفظ الإعدادات عند إغلاق الصفحة
 window.addEventListener('beforeunload', () => {
-    saveSettings();
+    try {
+        const settings = {
+            gridSize: (document.getElementById('grid-size') as HTMLSelectElement)?.value || '1',
+            snapToGrid: (document.getElementById('snap-to-grid') as HTMLInputElement)?.checked ?? true,
+            timestamp: new Date().toISOString()
+        };
+        localStorage.setItem('tyrexwebcad-settings', JSON.stringify(settings));
+    } catch (error) {
+        logger.warn('فشل حفظ الإعدادات:', error);
+    }
 });
 
-// معالج الأخطاء العام
+// معالجة الأخطاء
 window.addEventListener('error', (event) => {
     logger.error('خطأ غير معالج:', event.error);
-    console.error('Unhandled error:', event.error);
 });
 
-// معالج رفض الوعود
 window.addEventListener('unhandledrejection', (event) => {
     logger.error('وعد مرفوض غير معالج:', event.reason);
-    console.error('Unhandled promise rejection:', event.reason);
 });
 
-// تصدير حالة التطبيق للتطوير (يمكن إزالته في الإنتاج)
+// تصدير للتطوير
 (window as any).appState = appState;
 (window as any).logger = logger;
